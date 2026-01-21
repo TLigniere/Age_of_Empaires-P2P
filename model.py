@@ -120,7 +120,7 @@ class Building:
 
     def occupy(self):
         """Marque la ferme comme étant occupée."""
-        self.occupied = False
+        self.occupied = True
 
     def free(self):
         """Libère la ferme pour qu'un autre villageois puisse l'utiliser."""
@@ -152,23 +152,41 @@ class Unit:
         """ Récolte une ressource si le villageois est sur une case contenant une ressource """
         tile = game_map.grid[self.y][self.x]
         if tile.resource:
-            resource_type = tile.resource
-            amount = min(20, self.max_capacity - self.resource_collected)
-            self.resource_collected += amount  # Récolte 20 unités de ressource (ou moins si la capacité max est atteinte)
-            print(f"{self.unit_type} récolte {amount} unités de {resource_type} à ({self.x}, {self.y}).")
-            self.current_resource = resource_type  # Stocke le type de ressource
-            if self.resource_collected >= self.max_capacity:
-                print(f"{self.unit_type} a atteint sa capacité maximale en {resource_type}.")
-                self.returning_to_town_center = True  # Le villageois retourne au Town Center
-            tile.resource = None  # La ressource est épuisée sur cette case
+            if not hasattr(tile, 'element'):
+                tile.element = GameElement(tile.resource, owner=self.ai)
+
+            element = tile.element
+            element.network_owner = self.ai
+
+            amount_to_gather = min(20, self.max_capacity - self.resource_collected)            
+            success = element.modify(self.ai, {"amount": min(20, self.max_capacity - self.resource_collected)})
+            if success:
+                gathered_amount = min(20, self.max_capacity - self.resource_collected)
+                self.resource_collected += gathered_amount
+                self.current_resource = element.id
+                print(f"{self.unit_type} récolte {gathered_amount} unités de {element.id} à ({self.x}, {self.y}).")
+                if self.resource_collected >= self.max_capacity:
+                    self.returning_to_town_center = True
+                tile.resource = None
+            else:
+                print(f"{self.unit_type} ne peut pas récolter {element.id}, réseau occupé par un autre joueur.")
+
+            element.network_owner = element.owner  # Remet le network_owner à l'owner réel
+            
 
     def gather_food_from_farm(self):
         """Récolte la nourriture de la ferme en continu jusqu'à épuisement."""
+        farm = self.working_farm
         if self.working_farm:
             if self.working_farm.is_empty():
                 print(f"Ferme à ({self.working_farm.x}, {self.working_farm.y}) est épuisée.")
                 self.working_farm = None
                 return
+            
+            # Essaye de prendre le contrôle du réseau
+            if not hasattr(farm, 'network_owner'):
+                farm.network_owner = farm  # On met le propriétaire initial
+            farm.network_owner = self.ai
 
             # Occupation pendant la récolte
             if not self.working_farm.is_occupied():
@@ -193,6 +211,8 @@ class Unit:
                     self.working_farm = None
                 else:
                     self.action_end_time = current_time + 5  # Prochaine récolte
+
+            farm.network_owner = farm  # Libère la ferme pour d'autres unités
 
     def deposit_resource(self, building):
         if building and building.building_type == 'Town Center' and self.current_resource:
