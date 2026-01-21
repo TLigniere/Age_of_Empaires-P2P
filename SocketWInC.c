@@ -2,6 +2,9 @@
 #include <ws2tcpip.h>
 #include <stdio.h>
 
+
+dlgdfg
+
 #pragma comment(lib, "ws2_32.lib")
 
 #define BUF_SIZE 1024
