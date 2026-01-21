@@ -54,9 +54,9 @@ class AI:
                 game_map.place_building(new_building, x, y)
                 self.buildings.append(new_building)
                 self.pay_resources(cost)
-                print(f"Bâtiment {new_building.building_type} construit à ({x}, {y})")
-        else:
-            print("Pas assez de ressources pour construire.")
+               #print(f"Bâtiment {new_building.building_type} construit à ({x}, {y})")
+        #else:
+           #print("Pas assez de ressources pour construire.")
 
 
     def find_valid_build_location(self, game_map):
@@ -73,7 +73,7 @@ class AI:
                     return x, y
 
         # Aucun emplacement disponible trouvé dans la zone de recherche
-        print("Aucun emplacement libre trouvé dans la zone de 3 cases autour du Town Center pour la ferme.")
+       #print("Aucun emplacement libre trouvé dans la zone de 3 cases autour du Town Center pour la ferme.")
         return None, None
 
 
@@ -81,7 +81,7 @@ class AI:
     def update_resources(self, resource_type, amount):
         if resource_type in self.resources:
             self.resources[resource_type] += amount
-            print(f"[AI] Ressources {resource_type} mises à jour : {self.resources[resource_type]} unités.")
+           #print(f"[AI] Ressources {resource_type} mises à jour : {self.resources[resource_type]} unités.")
 
     def can_afford(self, cost):
         """Vérifie si l'IA peut se permettre de payer un coût spécifique."""
@@ -92,13 +92,13 @@ class AI:
         if self.can_afford(cost):
             for res in cost:
                 self.resources[res] -= cost[res]
-                print(f"Paiement de {cost[res]} unités de {res}. Restant : {self.resources[res]}")
+               #print(f"Paiement de {cost[res]} unités de {res}. Restant : {self.resources[res]}")
 
     def update_population(self, change):
         self.population += change
-        print(f"Population mise à jour : {self.population}/{self.population_max}")
+       #print(f"Population mise à jour : {self.population}/{self.population_max}")
 
 
     def set_victoire(self, status):
         self.victoire = status
-        print(f"Victoire: {'Oui' if self.victoire else 'Non'}")
+       #print(f"Victoire: {'Oui' if self.victoire else 'Non'}")

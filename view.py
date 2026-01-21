@@ -11,6 +11,23 @@ def init_colors():
     curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Magenta pour les fermes
     curses.init_pair(7, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Bleu pour d'autres bâtiments (ex: Casernes)
 
+def define_characters(tile):
+    """Définit le caractère à afficher en fonction du type de tuile."""
+    if tile.building:
+        if tile.building.building_type == 'Town Center':
+            return ('T', 5)  # Town Center
+        elif tile.building.building_type == 'Farm':
+            return ('F', 6)  # Ferme
+        elif tile.building.building_type == 'Barracks':
+            return ('B', 7)  # Casernes
+        
+    if tile.resource == 'Wood':
+        return ('W', 1)  # Bois
+    elif tile.resource == 'Gold':
+        return ('G', 2)  # Or
+    else:
+        return ('.', 3)  # Tuile vide représentée par un point
+
 def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width):
     stdscr.clear()  # Efface l'écran pour éviter les résidus
     unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
@@ -19,21 +36,11 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
     for y in range(view_y, min(view_y + max_height, game_map.height)):
         for x in range(view_x, min(view_x + max_width, game_map.width)):
             tile = game_map.grid[y][x]
+            tile_char, color_pair = define_characters(tile)
             if (x, y) in unit_positions:
                 stdscr.addch(y - view_y, x - view_x, unit_positions[(x, y)], curses.color_pair(4))  # Villageois en cyan
-            elif tile.building:
-                if tile.building.building_type == 'Town Center':
-                    stdscr.addch(y - view_y, x - view_x, 'T', curses.color_pair(5))  # Town Center en rouge
-                elif tile.building.building_type == 'Farm':
-                    stdscr.addch(y - view_y, x - view_x, 'F', curses.color_pair(6))  # Ferme en magenta
-                elif tile.building.building_type == 'Barracks':
-                    stdscr.addch(y - view_y, x - view_x, 'B', curses.color_pair(7))  # Casernes en bleu
-            elif tile.resource == 'Wood':
-                stdscr.addch(y - view_y, x - view_x, 'W', curses.color_pair(1))  # Bois en vert
-            elif tile.resource == 'Gold':
-                stdscr.addch(y - view_y, x - view_x, 'G', curses.color_pair(2))  # Or en jaune
             else:
-                stdscr.addch(y - view_y, x - view_x, '.', curses.color_pair(3))  # Tuile vide représentée par un point
+                stdscr.addch(y - view_y, x - view_x, tile_char, curses.color_pair(color_pair))  # Tuile vide représentée par un point
 
     # Afficher les ressources dans le Town Center
     if buildings:

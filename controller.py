@@ -41,6 +41,7 @@ def load_existing_game(filename):
         print(f"[INFO] Chargé : {filename}")
     else:
         print("[ERROR] Chargement échoué. Le fichier est corrompu ou n'existe pas.")
+        
 
 def load_existing_game_curses(stdscr):
     saves = list_saves()
@@ -317,15 +318,29 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    global units, buildings, game_map, ai
+    global units, buildings, game_map, ai   
 
     max_height, max_width = stdscr.getmaxyx()
-    max_height -= 1
-    max_width -= 1
+    max_height -= max_height - 10
+    max_width -= int(max_width/2-20)
     view_x, view_y = 0, 0
 
     stdscr.nodelay(True)
     stdscr.timeout(100)
+
+    mapDisplay = curses.newwin( int(max_height + 2 ), int(max_width *2+2), 1, 1 )
+    mapDisplay.box()
+
+    printDisplay = curses.newwin(5,max_width*2 + 2 ,int(max_height + 5),1)
+    printDisplay.box()
+
+    positionDisplay = curses.newwin(2,max_width*2,int(max_height+3),1)
+    positionDisplay.box()
+
+    infoDisplay = curses.newwin(max_height,36,1,max_width*2+3)
+    infoDisplay.box()
+
+
 
     last_update_time = time.time()
 
