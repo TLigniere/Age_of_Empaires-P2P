@@ -8,6 +8,9 @@ from model import Map, Unit, Building
 from view import display_with_curses, handle_input, init_colors
 from view_graphics import handle_input_pygame, render_map, screen_width, screen_height, TILE_WIDTH, TILE_HEIGHT, initialize_graphics
 from game_utils import save_game_state, load_game_state
+import socket
+import select
+import json 
 
 
 from ai_strategies.base_strategies import AI
@@ -25,9 +28,29 @@ last_update_time = 0  # Initialiser last_update_time avant la boucle principale 
 # Constants
 SAVE_DIR = "saves"
 DEFAULT_SAVE = os.path.join(SAVE_DIR, "default_game.pkl")
+GAME_PLAYING = "PLAYING"
+GAME_PAUSED = "PAUSED"
 
 # Global Variables
-units, buildings, game_map, ai, ai = None, None, None, None, None
+units, buildings, game_map, ai = None, None, None, None
+game_state = GAME_PLAYING
+
+class GameElement:
+    def __init__(self, id, owner=None):
+        self.id = id
+        self.owner = owner        # Joueur qui possède cet élément (propriété métier)
+        self.network_owner = owner  # Joueur qui contrôle cet élément pour le réseau
+        self.state = {}           # État de l’élément (ex: mur endommagé, ressources)
+
+    def can_modify(self, player):
+        return self.network_owner == player
+
+    def modify(self, player, changes):
+        if self.can_modify(player):
+            self.state.update(changes)
+            # envoyer un message réseau au processus C
+            return True
+        return False
 
 def list_saves():
     saves = [f for f in os.listdir(SAVE_DIR) if f.endswith(".pkl")]
@@ -319,6 +342,8 @@ def escape_menu_graphics(screen):
 def game_loop_curses(stdscr):
     global units, buildings, game_map, ai
 
+    network = NetworkClient()
+
     max_height, max_width = stdscr.getmaxyx()
     max_height -= 1
     max_width -= 1
@@ -332,6 +357,17 @@ def game_loop_curses(stdscr):
     init_colors()
 
     while True:
+
+        network.poll()
+
+        if not network.is_connected():
+            game_state = GAME_PAUSED
+        if game_state == GAME_PAUSED:
+            stdscr.addstr(0, 0, "Connexion perdue - jeu en pause")
+            stdscr.refresh()
+            time.sleep(0.5)
+            continue
+
         current_time = time.time()
 
         # Gère les entrées utilisateur et affiche la carte en curses
@@ -351,6 +387,8 @@ def game_loop_curses(stdscr):
 def game_loop_graphics():
     global units, buildings, game_map, ai
 
+    network = NetworkClient()
+
     # Initialiser pygame pour le mode graphique
     screen = initialize_graphics()
 
@@ -363,6 +401,11 @@ def game_loop_graphics():
 
     while running:
         current_time = time.time()
+
+        network.poll()
+        if not network.is_connected():
+            print("Connexion perdue")
+            continue
         
         # Gère les entrées utilisateur pour le scrolling de la carte
         view_x, view_y = handle_input_pygame(view_x, view_y, max_width, max_height, game_map)
@@ -667,6 +710,26 @@ def init_game():
         buildings = [town_center]
         ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
 
+
+
+class NetworkClient:
+    def __init__(self):
+        self.connected = True
+        self.inbox = []
+
+    def _read_from_c(self):
+        return []
+
+    def poll(self):
+        for msg in self._read_from_c():
+            if msg.type == "SYSTEM" and msg.code == "DISCONNECTED":
+                self.connected = False
+            else:
+                self.inbox.append(msg)
+
+    def is_connected(self):
+        return self.connected
+
 def main():
     # Ne pas initialiser pygame à moins que le mode graphique soit spécifié
     if 'graphics' in sys.argv:
@@ -676,3 +739,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
