@@ -176,41 +176,42 @@ class Unit:
 
     def gather_food_from_farm(self):
         """Récolte la nourriture de la ferme en continu jusqu'à épuisement."""
+        if not self.working_farm:
+            return
         farm = self.working_farm
-        if self.working_farm:
-            if self.working_farm.is_empty():
+        if self.working_farm.is_empty():
                 print(f"Ferme à ({self.working_farm.x}, {self.working_farm.y}) est épuisée.")
                 self.working_farm = None
                 return
             
-            # Essaye de prendre le contrôle du réseau
-            if not hasattr(farm, 'network_owner'):
-                farm.network_owner = farm  # On met le propriétaire initial
-            farm.network_owner = self.ai
+        # Essaye de prendre le contrôle du réseau
+        if not hasattr(farm, 'network_owner'):
+            farm.network_owner = farm  # On met le propriétaire initial
+        farm.network_owner = self.ai
 
-            # Occupation pendant la récolte
-            if not self.working_farm.is_occupied():
-                self.working_farm.occupy()
-                print(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
+        # Occupation pendant la récolte
+        if not self.working_farm.is_occupied():
+            self.working_farm.occupy()
+            print(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
 
-            current_time = time.time()
-            if not hasattr(self, 'action_end_time'):
-                self.action_end_time = current_time + 5  # Timer initial pour la récolte
+        current_time = time.time()
+        if not hasattr(self, 'action_end_time'):
+            self.action_end_time = current_time + 5  # Timer initial pour la récolte
 
-            if current_time >= self.action_end_time:
-                amount = min(20, self.max_capacity - self.resource_collected)
-                food_gathered = self.working_farm.gather_food(amount)
-                self.resource_collected += food_gathered
-                self.current_resource = 'Food'
-                print(f"{self.unit_type} récolte {food_gathered} unités de nourriture.")
+        if current_time >= self.action_end_time:
+            amount = min(20, self.max_capacity - self.resource_collected)
+            food_gathered = self.working_farm.gather_food(amount)
+            self.resource_collected += food_gathered
+            self.current_resource = 'Food'
+            print(f"{self.unit_type} récolte {food_gathered} unités de nourriture.")
 
-                if self.resource_collected >= self.max_capacity:
-                    print(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
-                    self.returning_to_town_center = True
-                    self.working_farm.free()
-                    self.working_farm = None
-                else:
-                    self.action_end_time = current_time + 5  # Prochaine récolte
+            if self.resource_collected >= self.max_capacity:
+                print(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
+                self.returning_to_town_center = True
+                self.working_farm.free()
+                self.working_farm = None
+            else:
+                self.action_end_time = current_time + 5  # Prochaine récolte
 
             farm.network_owner = farm  # Libère la ferme pour d'autres unités
 
