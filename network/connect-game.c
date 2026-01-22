@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     printf("=== SYSTEME FILE D'ATTENTE (FIFO) ===\n");
     printf(" [m] Envoyer un message manuel (VAR:x)\n");
     printf(" [v] Voir la file (View)\n");
-    printf(" [d] Depiler le plus ANCIEN (Dequeue)\n");
+    printf(" [d] Depiler le plus ANCIEN \n");
     printf(" [q] Quitter\n\n");
 
     while (1) {

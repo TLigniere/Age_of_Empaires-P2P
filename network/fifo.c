@@ -24,7 +24,7 @@ void enqueue(Queue *q, char *msg) {
         q->rear = (q->rear + 1) % QUEUE_MAX;
         strcpy(q->items[q->rear], msg);
         q->count++;
-        printf("\n[QUEUE] Ajout (Enqueue) : %s\n", msg);
+        printf("\n[QUEUE] Ajout : %s\n", msg);
     }
 }
 
@@ -32,7 +32,7 @@ void dequeue(Queue *q) {
     if (isEmpty(q)) {
         printf("\n[!] File vide ! Rien a traiter.\n");
     } else {
-        printf("\n[QUEUE] Traitement (Dequeue) : %s\n", q->items[q->front]);
+        printf("\n[QUEUE] Traitement : %s\n", q->items[q->front]);
         q->front = (q->front + 1) % QUEUE_MAX;
         q->count--;
     }
