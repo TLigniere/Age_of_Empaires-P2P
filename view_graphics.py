@@ -30,7 +30,27 @@ def initialize_graphics():
     
     return screen
 
-def render_map(screen, game_map, units, buildings, ai, view_x, view_y, max_width, max_height):
+# ========== NOUVEAU : Fonction pour coloriser une image ==========
+def colorize_image(image, color):
+    """
+    Applique une teinte de couleur à une image tout en préservant la transparence.
+    
+    Args:
+        image: Surface pygame à coloriser
+        color: Tuple RGB (r, g, b)
+    
+    Returns:
+        Surface pygame colorisée
+    """
+    colored_image = image.copy()
+    colored_image.fill(color + (0,), special_flags=pygame.BLEND_RGBA_MULT)
+    return colored_image
+# ==================================================================
+
+def render_map(screen, game_map, units, buildings, game_state, view_x, view_y, max_width, max_height):
+    """
+    MODIFIÉ : Prend maintenant game_state au lieu de ai pour accéder aux couleurs
+    """
     if not isinstance(screen, pygame.Surface):
         raise TypeError(f"Expected screen to be a pygame.Surface, but got {type(screen)}")
 
@@ -52,29 +72,54 @@ def render_map(screen, game_map, units, buildings, ai, view_x, view_y, max_width
             else:
                 screen.blit(images['grass'], (iso_x, iso_y))
 
-    # Render buildings
+    # ========== MODIFIÉ : Render buildings avec couleurs ==========
     for building in buildings:
         screen_x = (building.x - building.y) * (TILE_WIDTH // 2) + (screen_width // 2) - TILE_WIDTH // 2 - (view_x - view_y) * (TILE_WIDTH // 2)
         screen_y = (building.x + building.y) * (TILE_HEIGHT // 2) - (view_x + view_y) * (TILE_HEIGHT // 2)
+        
+        # Déterminer la couleur selon le propriétaire
+        if building.owner == game_state.player_side:
+            color = game_state.get_player_color()
+        else:
+            color = game_state.get_enemy_color()
+        
         if building.building_type == 'Town Center':
-            screen.blit(images['town_center'], (screen_x, screen_y - TILE_HEIGHT))  # Décalage pour le bâtiment
+            colored_building = colorize_image(images['town_center'], color)
+            screen.blit(colored_building, (screen_x, screen_y - TILE_HEIGHT))
         elif building.building_type == 'Farm':
-            screen.blit(images['farm'], (screen_x, screen_y - TILE_HEIGHT))  # Ajout pour la ferme
+            colored_building = colorize_image(images['farm'], color)
+            screen.blit(colored_building, (screen_x, screen_y - TILE_HEIGHT))
+    # ==============================================================
 
-    # Render units
+    # ========== MODIFIÉ : Render units avec couleurs ==========
     for unit in units:
         screen_x = (unit.x - unit.y) * (TILE_WIDTH // 2) + (screen_width // 2) - TILE_WIDTH // 2 - (view_x - view_y) * (TILE_WIDTH // 2)
         screen_y = (unit.x + unit.y) * (TILE_HEIGHT // 2) - (view_x + view_y) * (TILE_HEIGHT // 2)
+        
+        # Déterminer la couleur selon le propriétaire
+        if unit.owner == game_state.player_side:
+            color = game_state.get_player_color()
+        else:
+            color = game_state.get_enemy_color()
+        
         if unit.unit_type == 'Villager':
-            screen.blit(images['villager'], (screen_x, screen_y - TILE_HEIGHT // 2))  # Décalage pour l'unité
+            colored_villager = colorize_image(images['villager'], color)
+            screen.blit(colored_villager, (screen_x, screen_y - TILE_HEIGHT // 2))
+    # ==========================================================
 
-    # Afficher les ressources du ai en haut de l'écran
+    # Afficher les ressources du joueur en haut de l'écran
     font = pygame.font.Font(None, 36)
-    resources_info = (f"Bois: {ai.resources['Wood']} Or: {ai.resources['Gold']} "
-                      f"Nourriture: {ai.resources['Food']} "
-                      f"Population: {ai.population}/{ai.population_max}")
+    resources_info = (f"Bois: {game_state.player_ai.resources['Wood']} Or: {game_state.player_ai.resources['Gold']} "
+                      f"Nourriture: {game_state.player_ai.resources['Food']} "
+                      f"Population: {game_state.player_ai.population}/{game_state.player_ai.population_max}")
     resources_text = font.render(resources_info, True, (255, 255, 255))
     screen.blit(resources_text, (20, 20))
+    
+    # ========== NOUVEAU : Afficher le camp du joueur ==========
+    player_info = f"Vous jouez : {game_state.player_side}"
+    player_text = font.render(player_info, True, game_state.get_player_color())
+    screen.blit(player_text, (20, 60))
+    # ===========================================================
 
     # Update the display
     pygame.display.flip()
