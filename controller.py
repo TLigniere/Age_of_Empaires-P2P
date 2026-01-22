@@ -8,6 +8,11 @@ from model import Map, Unit, Building
 from view import display_with_curses, handle_input, init_colors
 from view_graphics import handle_input_pygame, render_map, screen_width, screen_height, TILE_WIDTH, TILE_HEIGHT, initialize_graphics
 from game_utils import save_game_state, load_game_state
+import socket
+import time
+
+import select
+import json 
 
 
 from ai_strategies.base_strategies import AI
@@ -25,9 +30,45 @@ last_update_time = 0  # Initialiser last_update_time avant la boucle principale 
 # Constants
 SAVE_DIR = "saves"
 DEFAULT_SAVE = os.path.join(SAVE_DIR, "default_game.pkl")
+GAME_PLAYING = "PLAYING"
+GAME_PAUSED = "PAUSED"
+
+# ========== NETWORK CONFIGURATION ==========
+# Set to True when you have the C process running
+# Set to False for local testing without C process
+ENABLE_NETWORK = False
+# ==========================================
+
+# Simple GameState object to track player_side and AI resources
+class GameState:
+    def __init__(self):
+        self.player_side = 'J1'  # Default to J1
+        self.player_ai = None  # Will be set later
+        
+    def set_player_ai(self, ai_obj):
+        self.player_ai = ai_obj
 
 # Global Variables
-units, buildings, game_map, ai, ai = None, None, None, None, None
+units, buildings, game_map, ai = None, None, None, None
+game_state = GAME_PLAYING
+player_side_state = GameState()  # Track player side
+
+class GameElement:
+    def __init__(self, id, owner=None):
+        self.id = id
+        self.owner = owner        # Joueur qui possède cet élément (propriété métier)
+        self.network_owner = owner  # Joueur qui contrôle cet élément pour le réseau
+        self.state = {}           # État de l’élément (ex: mur endommagé, ressources)
+
+    def can_modify(self, player):
+        return self.network_owner == player
+
+    def modify(self, player, changes):
+        if self.can_modify(player):
+            self.state.update(changes)
+            # envoyer un message réseau au processus C
+            return True
+        return False
 
 def list_saves():
     saves = [f for f in os.listdir(SAVE_DIR) if f.endswith(".pkl")]
@@ -117,6 +158,59 @@ def clear_input_buffer(stdscr):
 
 
 
+def choose_player_side_curses(stdscr):
+    """Menu de sélection du camp (J1 ou J2) en mode curses"""
+    options = ["Jouer en tant que Joueur 1 (Bleu)", "Jouer en tant que Joueur 2 (Rouge)"]
+    selected = 0
+    
+    while True:
+        stdscr.clear()
+        stdscr.addstr(0, 0, "=== Choisissez votre camp ===")
+        for i, option in enumerate(options):
+            if i == selected:
+                stdscr.addstr(i + 2, 0, option, curses.A_REVERSE)
+            else:
+                stdscr.addstr(i + 2, 0, option)
+        stdscr.refresh()
+        
+        key = stdscr.getch()
+        if key == curses.KEY_DOWN:
+            selected = (selected + 1) % 2
+        elif key == curses.KEY_UP:
+            selected = (selected - 1) % 2
+        elif key == ord('\n'):
+            return 'J1' if selected == 0 else 'J2'
+
+
+def choose_player_side_graphics(screen, font):
+    """Menu de sélection du camp (J1 ou J2) en mode graphique"""
+    options = ["Jouer en tant que Joueur 1 (Bleu)", "Jouer en tant que Joueur 2 (Rouge)"]
+    selected = 0
+    running = True
+    
+    while running:
+        screen.fill((0, 0, 0))
+        title = font.render("=== Choisissez votre camp ===", True, (255, 255, 255))
+        screen.blit(title, (20, 50))
+        
+        for i, option in enumerate(options):
+            color = (255, 255, 255) if i == selected else (100, 100, 100)
+            text = font.render(option, True, color)
+            screen.blit(text, (20, 120 + i * 50))
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit(0)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_DOWN:
+                    selected = (selected + 1) % 2
+                elif event.key == pygame.K_UP:
+                    selected = (selected - 1) % 2
+                elif event.key == pygame.K_RETURN:
+                    return 'J1' if selected == 0 else 'J2'
+
+
 def signal_handler(sig, frame):
     print("[INFO] Exiting due to CTRL+C")
     curses.endwin()
@@ -175,6 +269,39 @@ def update_game(units, buildings, game_map, ai, strategy, delay, last_update_tim
         strategy.execute(units, buildings, game_map, ai)
         return current_time
     return last_update_time
+
+def send_game_state_to_c(network, units, buildings, ai, player_side):
+    """Send current game state to C process"""
+    if not network.is_connected():
+        return
+    
+    try:
+        # Send unit positions
+        for unit in units:
+            msg = f"UNIT_UPDATE|id:{id(unit)},type:{unit.unit_type},x:{unit.x},y:{unit.y},owner:{unit.owner}"
+            network.send_to_c("UNIT_STATE", msg)
+        
+        # Send resource information
+        if ai and ai.resources:
+            res_msg = f"wood:{ai.resources.get('Wood', 0)},gold:{ai.resources.get('Gold', 0)},food:{ai.resources.get('Food', 0)}"
+            network.send_to_c("RESOURCES", res_msg)
+        
+        # Send building information
+        for building in buildings:
+            bld_msg = f"type:{building.building_type},x:{building.x},y:{building.y},owner:{building.owner}"
+            network.send_to_c("BUILDING_STATE", bld_msg)
+    except Exception as e:
+        print(f"[WARNING] Error sending game state to C: {str(e)}")
+
+def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0):
+    """Check if it's time to autosave (every save_interval seconds)"""
+    try:
+        if current_time - last_save_time > save_interval:
+            save_game_state(units, buildings, game_map, ai, DEFAULT_SAVE)
+            return current_time
+    except Exception as e:
+        print(f"[WARNING] Autosave failed: {e}")
+    return last_save_time
 
 def escape_menu_curses(stdscr):
     options = ["1. Sauvegarder", "2. Charger", "3. Reprendre", "4. Retour au Menu Principal", "5. Quitter"]
@@ -318,7 +445,9 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    global units, buildings, game_map, ai  
+    global units, buildings, game_map, ai, game_state
+
+    network = NetworkClient(enable_network=ENABLE_NETWORK)
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -329,16 +458,38 @@ def game_loop_curses(stdscr):
     stdscr.timeout(100)
 
     last_update_time = time.time()
+    last_save_time = time.time()
+    last_network_send_time = time.time()
 
     init_colors()
 
     while True:
+
+        network.poll()
+
+        if not network.is_connected():
+            game_state = GAME_PAUSED
+        if game_state == GAME_PAUSED:
+            stdscr.addstr(0, 0, "Connexion perdue - jeu en pause")
+            stdscr.refresh()
+            time.sleep(0.5)
+            continue
+
         current_time = time.time()
 
         # Gère les entrées utilisateur et affiche la carte en curses
         view_x, view_y = handle_input(stdscr, view_x, view_y, max_height, max_width, game_map)
-        display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width)
+        display_with_curses(stdscr, game_map, units, buildings, player_side_state, view_x, view_y, max_height, max_width)
         last_update_time = update_game(units, buildings, game_map, ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
+        
+        # Send periodic updates to C process (every 0.5 seconds)
+        current_time = time.time()
+        if current_time - last_network_send_time > 0.5:
+            send_game_state_to_c(network, units, buildings, ai, player_side_state.player_side)
+            last_network_send_time = current_time
+        
+        # Auto-save game state (every 5 seconds)
+        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
         key = stdscr.getch()
         if key == curses.KEY_F12:
@@ -350,7 +501,9 @@ def game_loop_curses(stdscr):
 
 # Correction dans la fonction game_loop_graphics
 def game_loop_graphics():
-    global units, buildings, game_map, ai
+    global units, buildings, game_map, ai, game_state
+
+    network = NetworkClient(enable_network=ENABLE_NETWORK)
 
     # Initialiser pygame pour le mode graphique
     screen = initialize_graphics()
@@ -361,18 +514,33 @@ def game_loop_graphics():
     max_width = screen_width // TILE_WIDTH
     max_height = screen_height // TILE_HEIGHT
     last_update_time = time.time()
+    last_save_time = time.time()
+    last_network_send_time = time.time()
 
     while running:
         current_time = time.time()
+
+        network.poll()
+        if not network.is_connected():
+            print("Connexion perdue")
+            continue
         
         # Gère les entrées utilisateur pour le scrolling de la carte
         view_x, view_y = handle_input_pygame(view_x, view_y, max_width, max_height, game_map)
         
         # Mise à jour du jeu à intervalles réguliers
         last_update_time = update_game(units, buildings, game_map, ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
+        
+        # Send periodic updates to C process (every 0.5 seconds)
+        if current_time - last_network_send_time > 0.5:
+            send_game_state_to_c(network, units, buildings, ai, player_side_state.player_side)
+            last_network_send_time = current_time
+        
+        # Auto-save game state (every 5 seconds)
+        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
         # Rendu de la carte et des unités
-        render_map(screen, game_map, units, buildings, ai, view_x, view_y, max_width, max_height)
+        render_map(screen, game_map, units, buildings, player_side_state, view_x, view_y, max_width, max_height)
 
 
         # Gérer les événements Pygame (fermeture de fenêtre, bascule de mode, menu)
@@ -485,7 +653,11 @@ def start_new_game_curses(stdscr):
         speed = 1.0
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai
+    global units, buildings, game_map, ai, player_side_state
+    
+    # Ask player to choose their side (J1 or J2)
+    player_side_state.player_side = choose_player_side_curses(stdscr)
+    
     game_map = Map(map_size, map_size)
     game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=gold_clusters)
@@ -505,6 +677,9 @@ def start_new_game_curses(stdscr):
     # Mettre à jour les unités avec l'instance correcte de l'IA
     for unit in units:
         unit.ai = ai
+    
+    # Set the player AI in game state
+    player_side_state.set_player_ai(ai)
 
     # Lancer la boucle de jeu avec curses
     curses.wrapper(game_loop_curses)
@@ -625,7 +800,11 @@ def start_new_game_graphics(screen, font):
         speed = 1.0
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai, ai
+    global units, buildings, game_map, ai, player_side_state
+    
+    # Ask player to choose their side (J1 or J2)
+    player_side_state.player_side = choose_player_side_graphics(screen, font)
+    
     game_map = Map(120, 120)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
@@ -638,6 +817,9 @@ def start_new_game_graphics(screen, font):
     units = [villager, villager2, villager3]
     buildings = [town_center]
     ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+    
+    # Set the player AI in game state
+    player_side_state.set_player_ai(ai)
 
     # Lancer la boucle de jeu graphique
     game_loop_graphics()
@@ -649,7 +831,8 @@ def render_text(screen, font, text, position, color=(255, 255, 255)):
 
 
 def init_game():
-    global units, buildings, game_map, ai, ai
+    global units, buildings, game_map, ai, player_side_state
+    player_side_state.player_side = 'J1'  # Set player side (default J1)
     os.makedirs(SAVE_DIR, exist_ok=True)
     loaded_units, loaded_buildings, loaded_map, loaded_ai = load_game_state(DEFAULT_SAVE)
     if loaded_units and loaded_buildings and loaded_map and loaded_ai:
@@ -667,6 +850,110 @@ def init_game():
         units = [villager, villager2, villager3]
         buildings = [town_center]
         ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+        
+        # Set the player AI in game state
+        player_side_state.set_player_ai(ai)
+
+
+
+class NetworkClient:
+    def __init__(self, python_port=5000, dest_port=6000, enable_network=False):
+        """
+        Initialize NetworkClient
+        Args:
+            python_port: Port to listen on
+            dest_port: Port to send to
+            enable_network: Whether to enable network communication (False for local testing)
+        """
+        self.enable_network = enable_network
+        self.connected = False  # Start as disconnected until C process connects
+        self.inbox = []
+        self.last_msg_time = time.time()
+        self.dest_port = dest_port
+        self.sock = None
+
+        # Only create socket if network is enabled
+        if self.enable_network:
+            try:
+                # Socket UDP
+                self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                self.sock.bind(("127.0.0.1", python_port))
+                self.sock.setblocking(False)  # Non bloquant
+                self.connected = True
+                print("[INFO] Network client initialized and listening")
+            except OSError as e:
+                print(f"[WARNING] Failed to initialize network: {e}")
+                self.connected = False
+        else:
+            print("[INFO] Network is disabled - running in local mode")
+
+    def _read_from_c(self):
+        messages = []
+        
+        # If network is disabled, return empty list
+        if not self.enable_network or not self.sock:
+            return messages
+            
+        try:
+            while True:
+                data, addr = self.sock.recvfrom(4096)
+                messages.append(data.decode())
+                self.last_msg_time = time.time()
+        except BlockingIOError:
+            pass
+        except (ConnectionResetError, OSError) as e:
+            # Connection closed by remote host or other socket error
+            self.connected = False
+            print(f"[WARNING] Network error: {e}")
+        return messages
+
+    def poll(self):
+        """Poll les messages et les met dans self.inbox"""
+        try:
+            for raw_msg in self._read_from_c():
+                if "|" in raw_msg:
+                    msg_type, payload = raw_msg.split("|", 1)
+                else:
+                    msg_type = raw_msg
+                    payload = ""
+                
+                if msg_type == "SYSTEM" and payload.startswith("DISCONNECTED"):
+                    self.connected = False
+                else:
+                    # Stocke sous forme de tuple (type, payload)
+                    self.inbox.append((msg_type, payload))
+        except Exception as e:
+            print(f"[WARNING] Error in poll: {e}")
+            self.connected = False
+
+        # Si plus de message depuis 2s → on considère la connexion perdue
+        if time.time() - self.last_msg_time > 2.0:
+            self.connected = False
+
+    def is_connected(self):
+        """Return True if network is disabled or connected"""
+        # If network is disabled, always return True (don't pause the game)
+        if not self.enable_network:
+            return True
+        return self.connected
+    
+    def send_to_c(self, msg_type, payload="", dest_port=6000):
+        """Send message to C process with error handling"""
+        
+        # If network is disabled, silently ignore
+        if not self.enable_network or not self.sock:
+            return
+            
+        try:
+            message = f"{msg_type}|{payload}" if payload else msg_type
+            dest_addr = ("127.0.0.1", self.dest_port)
+            self.sock.sendto(message.encode(), dest_addr)
+        except (ConnectionResetError, OSError) as e:
+            self.connected = False
+            print(f"[WARNING] Failed to send to C: {e}")
+        except Exception as e:
+            print(f"[WARNING] Unexpected error sending to C: {e}")
+
 
 def main():
     # Ne pas initialiser pygame à moins que le mode graphique soit spécifié
@@ -677,3 +964,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
