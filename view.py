@@ -1,5 +1,5 @@
 import curses
-#from controller import mapDisplay, printDisplay, positionDisplay, infoDisplay
+#from controller import mapDisplay, printDisplay, connexionDisplay, infoDisplay
 
 def init_colors():
     """Initialise les couleurs pour l'affichage."""
@@ -31,7 +31,7 @@ def define_characters(tile):
     
 def define_boxes(stdscr, game_map):
     """Définit les différentes boîtes pour l'affichage."""
-    global mapDisplay, printDisplay, positionDisplay, infoDisplay
+    global mapDisplay, printDisplay, connexionDisplay, infoDisplay
 
     global max_clm, max_row, modu_X, modu_Y, row_num, clm_num
     
@@ -41,8 +41,8 @@ def define_boxes(stdscr, game_map):
     max_height, max_width = stdscr.getmaxyx()
     
     init_max_row,init_max_clm=stdscr.getmaxyx()
-    max_clm=int(init_max_clm/2-20)
-    max_row=init_max_row-10
+    max_clm=int(init_max_clm/2-3)
+    max_row=init_max_row-7
 
     row_num=len(game_map.grid)   #Row correspond à X coordonnées
     clm_num=len(game_map.grid[0])
@@ -53,12 +53,12 @@ def define_boxes(stdscr, game_map):
     
     mapDisplay = curses.newwin(max_height - 5, int(max_width / 2), 0, 0)
     printDisplay = curses.newwin(5, max_width, max_height - 5, 0)
-    positionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
+    connexionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
     infoDisplay = curses.newwin(max_height - 5, int(max_width / 2), 5, int(max_width / 2))
 
     mapDisplay.border( 0 )
 
-    positionDisplay.border( 0 )
+    connexionDisplay.border( 0 )
     infoDisplay.border( 0 )
 
 
@@ -83,9 +83,11 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
     # Affiche la portion visible de la carte en fonction de view_x et view_y
 #    for y in range(view_y, min(view_y + max_height, game_map.height)):
 #        for x in range(view_x, min(view_x + max_width, game_map.width)):
+    end_view_y = view_y + max_row
+    end_view_x = view_x + int(max_clm / 2)
 
-    for y in range(view_y , min(view_y + game_map.height, game_map.height)):
-        for x in range(view_x , min(view_x + game_map.width, game_map.width)):
+    for y in range(view_y , end_view_y):
+        for x in range(view_x , end_view_x ):
             try:
                 tile = game_map.grid[y][x]
                 tile_char, color_pair = define_characters(tile)
@@ -98,8 +100,8 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
 
             
  # Couleur pour le villageois
-            Y = ( y - view_y )
-            X = ( x - view_x )*2
+            Y = ( y - view_y + 1)
+            X = ( x - view_x + 1)*2
 
             #print( Case )
             try:
@@ -126,7 +128,18 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
 
     #stdscr.refresh()
     Info_Display([ai])
+    Connexion_Display("")
 
+
+def Connexion_Display(Text):
+    connexionDisplay.erase()
+    connexionDisplay.border( 0 ) 
+    Text_to_display = Text if Text != "" else "Aucune connexion au pairs."
+
+    connexion_info = (f"Statut de la connexion: {Text_to_display}")   
+
+    connexionDisplay.addstr(1, 1, str(connexion_info))
+    connexionDisplay.refresh()
 
 def Print_Display(Text):
     printDisplay.erase()
@@ -138,11 +151,13 @@ def Print_Display(Text):
 def Info_Display(players):
     infoDisplay.addstr(1,1,"Informations:")
     infoDisplay.border( 0 )
+    joueur_x = 0
     for ai in players:
+        joueur_x += 1
         resources_info = (f"Bois: {ai.resources['Wood']} Or: {ai.resources['Gold']} "
                             f"Nourriture: {ai.resources['Food']} "
                             f"Population: {ai.population}/{ai.population_max}")
-        infoDisplay.addstr(2,1,resources_info)
+        infoDisplay.addstr(2 * joueur_x,1,resources_info)
 
     infoDisplay.refresh()
     """
