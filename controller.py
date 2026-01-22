@@ -82,6 +82,7 @@ def load_existing_game(filename):
         print(f"[INFO] Chargé : {filename}")
     else:
         print("[ERROR] Chargement échoué. Le fichier est corrompu ou n'existe pas.")
+        
 
 def load_existing_game_curses(stdscr):
     saves = list_saves()
@@ -449,8 +450,8 @@ def game_loop_curses(stdscr):
     network = NetworkClient(enable_network=ENABLE_NETWORK)
 
     max_height, max_width = stdscr.getmaxyx()
-    max_height -= 1
-    max_width -= 1
+    max_height = max_height - 10
+    max_width = int(max_width/2-20)
     view_x, view_y = 0, 0
 
     stdscr.nodelay(True)

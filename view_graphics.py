@@ -1,6 +1,6 @@
 import pygame
 import os
-
+import sys
 # Constants for screen dimensions and tile sizes
 screen_width = 1920  # Increased screen width for better view
 screen_height = 1080  # Increased screen height for better view

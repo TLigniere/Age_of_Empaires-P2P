@@ -1,4 +1,5 @@
 import curses
+#from controller import mapDisplay, printDisplay, connexionDisplay, infoDisplay
 
 def init_colors():
     """Initialise les couleurs pour l'affichage."""
@@ -31,6 +32,55 @@ def display_with_curses(stdscr, game_map, units, buildings, game_state, view_x, 
             color_pair = 11  # Rouge pour J2
         unit_positions[(unit.x, unit.y)] = (unit.unit_type[0], color_pair)
     # ==================================================================================
+def define_characters(tile):
+    """Définit le caractère à afficher en fonction du type de tuile."""
+    if tile.building:
+        if tile.building.building_type == 'Town Center':
+            return ('T', 5)  # Town Center
+        elif tile.building.building_type == 'Farm':
+            return ('F', 6)  # Ferme
+        elif tile.building.building_type == 'Barracks':
+            return ('B', 7)  # Casernes
+        
+    if tile.resource == 'Wood':
+        return ('W', 1)  # Bois
+    elif tile.resource == 'Gold':
+        return ('G', 2)  # Or
+    else:
+        return ('.', 3)  # Tuile vide représentée par un point
+    
+def define_boxes(stdscr, game_map):
+    """Définit les différentes boîtes pour l'affichage."""
+    global mapDisplay, printDisplay, connexionDisplay, infoDisplay
+
+    global max_clm, max_row
+    
+    stdscr.clear() 
+    stdscr.refresh()
+
+    max_height, max_width = stdscr.getmaxyx()
+    
+    max_clm=int(max_width/2-3)
+    max_row=max_height-7
+    
+    mapDisplay = curses.newwin(max_height - 5, int(max_width / 2), 0, 0)
+    printDisplay = curses.newwin(5, max_width, max_height - 5, 0)
+    connexionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
+    infoDisplay = curses.newwin(max_height - 10, int(max_width / 2), 5, int(max_width / 2))
+
+    Print_Display("Affichage initialisé.")
+
+def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width):
+    
+ # Efface l'écran pour éviter les résidus
+    try:
+        mapDisplay.clear()
+    except NameError:
+        define_boxes(stdscr, game_map)
+
+    unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
+
+    mapDisplay.border( 0 )
 
     # Affiche la portion visible de la carte en fonction de view_x et view_y
     for y in range(view_y, min(view_y + max_height, game_map.height)):
@@ -80,7 +130,91 @@ def display_with_curses(stdscr, game_map, units, buildings, game_state, view_x, 
         # ===========================================================
     # ==================================================================
 
-    stdscr.refresh()
+    end_view_y = view_y + max_row
+    end_view_x = view_x + int(max_clm / 2)
+
+    for y in range(view_y , end_view_y):
+        for x in range(view_x , end_view_x ):
+            try:
+                tile = game_map.grid[y][x]
+                tile_char, color_pair = define_characters(tile)
+                Case= tile_char if (x,y) not in unit_positions else unit_positions[(x, y)] 
+                if Case == 'V':
+                    color_pair = 4 
+            except IndexError:
+                Case, color_pair = ('?', 4)
+
+            Y = ( y - view_y + 1)
+            X = ( x - view_x + 1)*2
+            
+            mapDisplay.addstr(Y , X, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
+    mapDisplay.refresh()
+
+    Info_Display([ai])
+    Connexion_Display("")
+
+
+def Connexion_Display(Text):
+    connexionDisplay.erase()
+    connexionDisplay.border( 0 ) 
+    Text_to_display = Text if Text != "" else "Aucune connexion au pairs."
+
+    connexion_info = (f"Statut de la connexion: {Text_to_display}")   
+
+    connexionDisplay.addstr(1, 1, str(connexion_info))
+    connexionDisplay.refresh()
+
+Queue = [] 
+
+def Print_Display(Text,Color=3):
+    printDisplay.erase()
+    printDisplay.border( 0 )
+
+    Queue.insert(0, [Text,Color])
+    
+    if len(Queue) > 3:
+        Queue.pop()
+
+    for i in range(0, 3):
+        Text_to_display = Queue[i][0] if len(Queue) > i else ""
+        Color = Queue[i][1] if len(Queue) > i else False
+
+        printDisplay.addstr(i+1, 1, Text_to_display,curses.color_pair(Color)) 
+
+    printDisplay.refresh()
+
+
+def Info_Display(players):
+    infoDisplay.addstr(1,1,"Informations:")
+    infoDisplay.border( 0 )
+    joueur_x = 0
+    for ai in players:
+        joueur_x += 1
+        resources_info = (f"Bois: {ai.resources['Wood']} Or: {ai.resources['Gold']} "
+                            f"Nourriture: {ai.resources['Food']} "
+                            f"Population: {ai.population}/{ai.population_max}")
+        infoDisplay.addstr(2 * joueur_x,1,resources_info)
+
+    infoDisplay.refresh()
+    """
+    infoDisplay.erase()
+    x=1
+    for faction in Factions:
+        for ressources in faction.inventory:
+            variable = faction.inventory[ressources]
+            infoDisplay.addstr(x,1,f"{faction.name} {ressources}:{variable}") 
+            x=x+1
+
+    key = f"{p_position[0]},{p_position[1]}"
+    infoCase = M[p_position[1]-1][p_position[0]-1] if units_in_cage.get(key) == None else units_in_cage.get(key)
+    j=x+1
+    for i in vars(infoCase) :
+        variable = vars(infoCase)[i] if i!="path" else None
+        infoDisplay.addstr(j,1,f"{i}:{variable}")
+        j=j+1
+    infoDisplay.refresh()
+    """
+
 
 
 def handle_input(stdscr, view_x, view_y, max_height, max_width, game_map):
