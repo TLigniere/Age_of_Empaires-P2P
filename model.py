@@ -75,10 +75,11 @@ class Map:
 
 
 class Building:
-    def __init__(self, building_type, x, y):
+    def __init__(self, building_type, x, y, owner='J1'):
         self.building_type = building_type  # Par exemple, 'Town Center'
         self.x = x
         self.y = y
+        self.owner = owner  # ========== NOUVEAU : Propriétaire du bâtiment ==========
         self.resources = {
             'Wood': 0,
             'Gold': 0,
@@ -134,12 +135,13 @@ class Building:
 
 
 class Unit:
-    def __init__(self, unit_type, x, y, ai, network):
+    def __init__(self, unit_type, x, y, ai, owner='J1', network):
         self.network = network
         self.unit_type = unit_type  # Par exemple : 'Villager'
         self.x = x  # Position x sur la carte
         self.y = y  # Position y sur la carte
         self.ai = ai
+        self.owner = owner  # ========== NOUVEAU : Propriétaire de l'unité (J1 ou J2) ==========
         self.resource_collected = 0  # Quantité de ressources que l'unité a collectée
         self.max_capacity = 20  # Quantité maximale que le villageois peut porter
         self.returning_to_town_center = False  # Si le villageois retourne au Town Center pour déposer les ressources
