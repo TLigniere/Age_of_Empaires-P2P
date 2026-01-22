@@ -129,6 +129,10 @@ def Print_Display(Text):
     printDisplay.border( 0 )
 
     Queue.insert(0, Text)
+    
+    # Keep only the last 3 items to prevent infinite growth
+    if len(Queue) > 3:
+        Queue.pop()
 
     for i in range(0, 3):
         Text_to_display = Queue[i] if len(Queue) > i else ""
