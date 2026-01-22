@@ -696,13 +696,62 @@ def start_new_game_graphics(screen, font):
     game_state.game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_state.game_map.generate_gold_clusters(num_clusters=gold_clusters)
     
-    town_center = Building('Town Center', 10, 10)
+    # ========== NOUVEAU : Initialiser avec propriétaires ==========
+    town_center = Building('Town Center', 10, 10, owner=player_side)
     game_state.game_map.place_building(town_center, 10, 10)
+    game_state.buildings = [town_center]
     
-    game_state.player_ai = AI([], [])
+    # Créer l'IA du joueur APRÈS avoir créé les bâtiments
+    game_state.player_ai = AI(game_state.buildings, [])
     
-    villager1 = Unit('Villager', 9, 9, game_state.player_ai)
-    villager1.owner = player_side
-    villager2 = Unit('Villager', 12, 9, game_state.player_ai)
-    villager2.owner = player_side
-    villager3 = Unit
+    # Unités du joueur
+    villager1 = Unit('Villager', 9, 9, game_state.player_ai, owner=player_side)
+    villager2 = Unit('Villager', 12, 9, game_state.player_ai, owner=player_side)
+    villager3 = Unit('Villager', 9, 12, game_state.player_ai, owner=player_side)
+    
+    # Créer un Town Center ennemi
+    enemy_town_center = Building('Town Center', 110, 110, owner=enemy_side)
+    game_state.game_map.place_building(enemy_town_center, 110, 110)
+    game_state.buildings.append(enemy_town_center)
+    
+    game_state.enemy_ai = AI([enemy_town_center], [])
+    enemy1 = Unit('Villager', 108, 108, game_state.enemy_ai, owner=enemy_side)
+    enemy2 = Unit('Villager', 112, 108, game_state.enemy_ai, owner=enemy_side)
+    # ================================================
+    
+    game_state.units = [villager1, villager2, villager3, enemy1, enemy2]
+    
+    # Mise à jour des références AI
+    game_state.player_ai.units = [u for u in game_state.units if u.owner == player_side]
+    game_state.enemy_ai.units = [u for u in game_state.units if u.owner == enemy_side]
+    
+    # Séparer les bâtiments par propriétaire
+    game_state.player_ai.buildings = [b for b in game_state.buildings if b.owner == player_side]
+    game_state.enemy_ai.buildings = [b for b in game_state.buildings if b.owner == enemy_side]
+    # Mettre à jour le town_center pour chaque IA
+    game_state.player_ai.town_center = game_state.player_ai.buildings[0] if game_state.player_ai.buildings else None
+    game_state.enemy_ai.town_center = game_state.enemy_ai.buildings[0] if game_state.enemy_ai.buildings else None
+    
+    game_loop_graphics()
+
+def render_text(screen, font, text, pos, color=(255, 255, 255)):
+    """Affiche du texte sur l'écran pygame"""
+    text_surface = font.render(text, True, color)
+    screen.blit(text_surface, pos)
+
+if __name__ == "__main__":
+    # Ensure save directory exists
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
+
+    # Initialize global game_state
+    game_state = GameState()
+
+    # Start main menu based on pygame availability
+    try:
+        import pygame
+        pygame.init()
+        main_menu_graphics()
+    except ImportError:
+        print("[ERROR] pygame not found. Starting in terminal mode.")
+        main_menu_curses()
