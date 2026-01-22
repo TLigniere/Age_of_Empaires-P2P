@@ -523,10 +523,8 @@ def start_new_game_curses(stdscr):
         gold_clusters = 4
         speed = 1.0
 
-    # ========== NOUVEAU : Choix du joueur ==========
+    # Choix du joueur
     player_side = choose_player_side_curses(stdscr)
-    enemy_side = 'J2' if player_side == 'J1' else 'J1'
-    # ================================================
 
     # Initialisation avec GameState
     game_state = GameState()
@@ -535,7 +533,7 @@ def start_new_game_curses(stdscr):
     game_state.game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_state.game_map.generate_gold_clusters(num_clusters=gold_clusters)
     
-    # Créer le Town Center avec le bon propriétaire
+    # Créer le Town Center
     town_center = Building('Town Center', 10, 10, owner=player_side)
     game_state.game_map.place_building(town_center, 10, 10)
     game_state.buildings = [town_center]
@@ -543,34 +541,16 @@ def start_new_game_curses(stdscr):
     # Créer l'IA du joueur APRÈS avoir créé les bâtiments
     game_state.player_ai = AI(game_state.buildings, [])
     
-    # Unités du joueur - MODIFIÉ avec owner
+    # Unités du joueur
     villager1 = Unit('Villager', 9, 9, game_state.player_ai, owner=player_side)
     villager2 = Unit('Villager', 12, 9, game_state.player_ai, owner=player_side)
     villager3 = Unit('Villager', 9, 12, game_state.player_ai, owner=player_side)
     
-    # ========== NOUVEAU : Unités ennemies ==========
-    # Créer un Town Center ennemi
-    enemy_town_center = Building('Town Center', 110, 110, owner=enemy_side)
-    game_state.game_map.place_building(enemy_town_center, 110, 110)
-    game_state.buildings.append(enemy_town_center)
+    game_state.units = [villager1, villager2, villager3]
+    game_state.player_ai.units = game_state.units
     
-    game_state.enemy_ai = AI([enemy_town_center], [])
-    enemy1 = Unit('Villager', 108, 108, game_state.enemy_ai, owner=enemy_side)
-    enemy2 = Unit('Villager', 112, 108, game_state.enemy_ai, owner=enemy_side)
-    # ================================================
-    
-    game_state.units = [villager1, villager2, villager3, enemy1, enemy2]
-    
-    # Mise à jour des références AI
-    game_state.player_ai.units = [u for u in game_state.units if u.owner == player_side]
-    game_state.enemy_ai.units = [u for u in game_state.units if u.owner == enemy_side]
-    
-    # Séparer les bâtiments par propriétaire
-    game_state.player_ai.buildings = [b for b in game_state.buildings if b.owner == player_side]
-    game_state.enemy_ai.buildings = [b for b in game_state.buildings if b.owner == enemy_side]
-    # Mettre à jour le town_center pour chaque IA
-    game_state.player_ai.town_center = game_state.player_ai.buildings[0] if game_state.player_ai.buildings else None
-    game_state.enemy_ai.town_center = game_state.enemy_ai.buildings[0] if game_state.enemy_ai.buildings else None
+    # Pas d'IA ennemie - jeu avec un seul joueur
+    game_state.enemy_ai = None
 
     curses.wrapper(game_loop_curses)
 
@@ -684,19 +664,17 @@ def start_new_game_graphics(screen, font):
         gold_clusters = 4
         speed = 1.0
 
-    # ========== NOUVEAU : Choix du joueur ==========
+    # Choix du joueur
     player_side = choose_player_side_graphics(screen, font)
-    enemy_side = 'J2' if player_side == 'J1' else 'J1'
-    # ================================================
 
-# Initialisation avec GameState
+    # Initialisation avec GameState
     game_state = GameState()
     game_state.set_player(player_side)
     game_state.game_map = Map(map_size, map_size)
     game_state.game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_state.game_map.generate_gold_clusters(num_clusters=gold_clusters)
     
-    # ========== NOUVEAU : Initialiser avec propriétaires ==========
+    # Initialiser avec le joueur sélectionné
     town_center = Building('Town Center', 10, 10, owner=player_side)
     game_state.game_map.place_building(town_center, 10, 10)
     game_state.buildings = [town_center]
@@ -709,28 +687,11 @@ def start_new_game_graphics(screen, font):
     villager2 = Unit('Villager', 12, 9, game_state.player_ai, owner=player_side)
     villager3 = Unit('Villager', 9, 12, game_state.player_ai, owner=player_side)
     
-    # Créer un Town Center ennemi
-    enemy_town_center = Building('Town Center', 110, 110, owner=enemy_side)
-    game_state.game_map.place_building(enemy_town_center, 110, 110)
-    game_state.buildings.append(enemy_town_center)
+    game_state.units = [villager1, villager2, villager3]
+    game_state.player_ai.units = game_state.units
     
-    game_state.enemy_ai = AI([enemy_town_center], [])
-    enemy1 = Unit('Villager', 108, 108, game_state.enemy_ai, owner=enemy_side)
-    enemy2 = Unit('Villager', 112, 108, game_state.enemy_ai, owner=enemy_side)
-    # ================================================
-    
-    game_state.units = [villager1, villager2, villager3, enemy1, enemy2]
-    
-    # Mise à jour des références AI
-    game_state.player_ai.units = [u for u in game_state.units if u.owner == player_side]
-    game_state.enemy_ai.units = [u for u in game_state.units if u.owner == enemy_side]
-    
-    # Séparer les bâtiments par propriétaire
-    game_state.player_ai.buildings = [b for b in game_state.buildings if b.owner == player_side]
-    game_state.enemy_ai.buildings = [b for b in game_state.buildings if b.owner == enemy_side]
-    # Mettre à jour le town_center pour chaque IA
-    game_state.player_ai.town_center = game_state.player_ai.buildings[0] if game_state.player_ai.buildings else None
-    game_state.enemy_ai.town_center = game_state.enemy_ai.buildings[0] if game_state.enemy_ai.buildings else None
+    # Pas d'IA ennemie - jeu avec un seul joueur
+    game_state.enemy_ai = None
     
     game_loop_graphics()
 
