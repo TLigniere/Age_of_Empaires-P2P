@@ -3,11 +3,12 @@
 #include <string.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <conio.h> // Pour _kbhit()
+#include <conio.h> 
 
 #pragma comment(lib, "ws2_32.lib")
 
 #define BUFFER_SIZE 4096
+#define TICK_RATE_MS 100
 
 void init_winsock() {
     WSADATA wsa;
@@ -27,96 +28,77 @@ int main(int argc, char *argv[]) {
     int my_port = atoi(argv[1]);
     int dest_port = atoi(argv[2]);
 
-    // 1. Création de la Socket UDP (SOCK_DGRAM)
     SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock == INVALID_SOCKET) {
-        printf("Erreur creation socket\n");
-        return 1;
-    }
-
-    // 2. Préparation de MON adresse (pour recevoir)
+    
+    // Config pour réception
     struct sockaddr_in my_addr;
     my_addr.sin_family = AF_INET;
-    my_addr.sin_addr.s_addr = INADDR_ANY; // J'accepte les paquets sur toutes mes interfaces
+    my_addr.sin_addr.s_addr = INADDR_ANY;
     my_addr.sin_port = htons(my_port);
+    bind(sock, (struct sockaddr*)&my_addr, sizeof(my_addr));
 
-    // 3. Binding (INDISPENSABLE en UDP pour recevoir)
-    if (bind(sock, (struct sockaddr*)&my_addr, sizeof(my_addr)) == SOCKET_ERROR) {
-        printf("Erreur Bind sur le port %d (Code: %d)\n", my_port, WSAGetLastError());
-        return 1;
-    }
-
-    // 4. Préparation de l'adresse du DESTINATAIRE (pour envoyer)
+    // Config pour envoi
     struct sockaddr_in dest_addr;
     dest_addr.sin_family = AF_INET;
-    dest_addr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Localhost pour le test
+    dest_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     dest_addr.sin_port = htons(dest_port);
 
-    printf("=== CHAT UDP P2P ===\n");
-    printf("Je suis sur le port : %d\n", my_port);
-    printf("J'envoie vers     : %d\n", dest_port);
-    printf("Ecrivez et validez par Entree...\n\n");
+    printf("[INFO] Appuyez sur 's' pour lancer/arreter l'envoi auto.\n");
+    printf("[INFO] Appuyez sur 'q' pour quitter.\n\n");
 
-    // --- Variables pour la boucle ---
-    char send_buffer[BUFFER_SIZE] = {0};
-    int send_pos = 0;
-    
     fd_set readfds;
     struct timeval timeout;
 
-    // --- BOUCLE PRINCIPALE (Game Loop style) ---
+    int auto_mode = 0;          // 0 = manuel, 1 = automatique
+    DWORD last_tick = 0;        // Mesure de temps
+    long packet_id = 0;         // Compteur de paquets
+
     while (1) {
-        // A. Surveillance Réseau (Polling)
+        if (auto_mode && (GetTickCount() - last_tick >= TICK_RATE_MS)) {
+            char auto_msg[64];
+            
+            sprintf(auto_msg, "packet : %ld", packet_id);
+            
+            sendto(sock, auto_msg, strlen(auto_msg), 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+            
+            printf("\r[SPAM LOOP] %s   ", auto_msg);
+            
+            packet_id++;
+            last_tick = GetTickCount(); // Reset du chrono
+        }
+
+        // 2. RECEPTION RESEAU (Non bloquant via Select)
         FD_ZERO(&readfds);
         FD_SET(sock, &readfds);
-
+        
+        // Timeout très court (10ms) pour que la boucle tourne vite
         timeout.tv_sec = 0;
-        timeout.tv_usec = 10000; // 10ms
+        timeout.tv_usec = 10000; 
 
         int activity = select(0, &readfds, NULL, NULL, &timeout);
 
-        // B. Si on a reçu un paquet UDP
         if (activity > 0 && FD_ISSET(sock, &readfds)) {
             char recv_buffer[BUFFER_SIZE];
-            struct sockaddr_in sender_addr;
-            int sender_len = sizeof(sender_addr);
-
-            // recvfrom nous donne aussi l'adresse de qui a envoyé (sender_addr)
-            int valread = recvfrom(sock, recv_buffer, BUFFER_SIZE - 1, 0, (struct sockaddr*)&sender_addr, &sender_len);
-
+            struct sockaddr_in sender;
+            int len = sizeof(sender);
+            int valread = recvfrom(sock, recv_buffer, BUFFER_SIZE - 1, 0, (struct sockaddr*)&sender, &len);
+            
             if (valread > 0) {
                 recv_buffer[valread] = '\0';
-                // Affichage propre (on efface la ligne de saisie en cours)
-                printf("\r[Recept] %s\n> %s", recv_buffer, send_buffer);
+                // On affiche ce qu'on reçoit (venant de l'autre jeu)
+                printf("\n [RECEPT]-> %s\n", recv_buffer);
             }
         }
 
-        // C. Si on tape au clavier (Polling local)
+        // INPUT CLAVIER
         if (_kbhit()) {
             char c = _getch();
-            if (c == '\r' || c == '\n') { // Touche Entrée
-                send_buffer[send_pos] = '\0';
-                printf("\n");
-
-                // ENVOI UDP (sendto)
-                // Pas de connexion préalable, on donne l'adresse à chaque envoi
-                int sent = sendto(sock, send_buffer, strlen(send_buffer), 0, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
-                
-                if (sent == SOCKET_ERROR) {
-                    printf("[Erreur Envoi] Code: %d\n", WSAGetLastError());
-                }
-
-                // Reset buffer
-                send_pos = 0;
-                memset(send_buffer, 0, BUFFER_SIZE);
-                printf("> ");
-
-            } else if (c == '\b' && send_pos > 0) { // Backspace
-                printf("\b \b");
-                send_pos--;
-            } else if (send_pos < BUFFER_SIZE - 1 && c >= 32 && c <= 126) {
-                printf("%c", c);
-                send_buffer[send_pos++] = c;
+            if (c == 'q') {
+                break;
+            } else
+            
+            if (c == 's') {
+                auto_mode = !auto_mode;
             }
         }
     }
