@@ -16,25 +16,15 @@ def init_colors():
     curses.init_pair(11, curses.COLOR_RED, curses.COLOR_BLACK)    # Rouge pour Joueur 2
     # =======================================================
 
-def display_with_curses(stdscr, game_map, units, buildings, game_state, view_x, view_y, max_height, max_width):
-    """
-    MODIFIÉ : Prend maintenant game_state au lieu de ai pour accéder aux couleurs
-    """
-    stdscr.clear()  # Efface l'écran pour éviter les résidus
-    
-    # ========== MODIFIÉ : Crée un dictionnaire avec unités et leurs couleurs ==========
-    unit_positions = {}
-    for unit in units:
-        # Détermine la couleur selon le propriétaire
-        if unit.owner == game_state.player_side:
-            color_pair = 10  # Bleu pour J1
-        else:
-            color_pair = 11  # Rouge pour J2
-        unit_positions[(unit.x, unit.y)] = (unit.unit_type[0], color_pair)
-    # ==================================================================================
-def define_characters(tile):
+
+
+def define_characters(tile,game_state):
     """Définit le caractère à afficher en fonction du type de tuile."""
     if tile.building:
+        if tile.building.owner == game_state.player_side:
+            building_color = 10  # Bleu pour J1
+        else:
+            building_color = 11  # Rouge pour J2
         if tile.building.building_type == 'Town Center':
             return ('T', 5)  # Town Center
         elif tile.building.building_type == 'Farm':
@@ -70,7 +60,7 @@ def define_boxes(stdscr, game_map):
 
     Print_Display("Affichage initialisé.")
 
-def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width):
+def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y):
     
  # Efface l'écran pour éviter les résidus
     try:
@@ -78,55 +68,26 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
     except NameError:
         define_boxes(stdscr, game_map)
 
-    unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
+    #unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
+
+    unit_positions = {}
+    for unit in units:
+        # Détermine la couleur selon le propriétaire
+        if unit.owner == game_state.player_side:
+            color_pair = 10  # Bleu pour J1
+        else:
+            color_pair = 11  # Rouge pour J2
+        unit_positions[(unit.x, unit.y)] = (unit.unit_type[0], color_pair)
 
     mapDisplay.border( 0 )
 
-    # Affiche la portion visible de la carte en fonction de view_x et view_y
-    for y in range(view_y, min(view_y + max_height, game_map.height)):
-        for x in range(view_x, min(view_x + max_width, game_map.width)):
-            tile = game_map.grid[y][x]
-            
-            # ========== MODIFIÉ : Affiche unités avec leurs couleurs ==========
-            if (x, y) in unit_positions:
-                char, color = unit_positions[(x, y)]
-                stdscr.addch(y - view_y, x - view_x, char, curses.color_pair(color))
-            # ==================================================================
-            
-            # ========== MODIFIÉ : Affiche bâtiments avec leurs couleurs ==========
-            elif tile.building:
-                # Détermine la couleur selon le propriétaire du bâtiment
-                if tile.building.owner == game_state.player_side:
-                    building_color = 10  # Bleu pour J1
-                else:
-                    building_color = 11  # Rouge pour J2
-                
-                if tile.building.building_type == 'Town Center':
-                    stdscr.addch(y - view_y, x - view_x, 'T', curses.color_pair(building_color))
-                elif tile.building.building_type == 'Farm':
-                    stdscr.addch(y - view_y, x - view_x, 'F', curses.color_pair(6))  # Ferme en magenta (neutre)
-                elif tile.building.building_type == 'Barracks':
-                    stdscr.addch(y - view_y, x - view_x, 'B', curses.color_pair(building_color))
-            # =====================================================================
-            
-            elif tile.resource == 'Wood':
-                stdscr.addch(y - view_y, x - view_x, 'W', curses.color_pair(1))  # Bois en vert
-            elif tile.resource == 'Gold':
-                stdscr.addch(y - view_y, x - view_x, 'G', curses.color_pair(2))  # Or en jaune
-            else:
-                stdscr.addch(y - view_y, x - view_x, '.', curses.color_pair(3))  # Tuile vide représentée par un point
 
-    # ========== MODIFIÉ : Afficher les ressources du joueur ==========
-    if buildings:
-        resources_info = (f"Bois: {game_state.player_ai.resources['Wood']} Or: {game_state.player_ai.resources['Gold']} "
-                          f"Nourriture: {game_state.player_ai.resources['Food']} "
-                          f"Population: {game_state.player_ai.population}/{game_state.player_ai.population_max}")
-        stdscr.addstr(0, 0, resources_info)  # Affiche les ressources en haut de l'écran
-        
+                
+    # ==================================================================
         # ========== NOUVEAU : Afficher le camp du joueur ==========
-        player_color = 10 if game_state.player_side == 'J1' else 11
-        player_info = f"Vous jouez : {game_state.player_side}"
-        stdscr.addstr(1, 0, player_info, curses.color_pair(player_color))
+    player_color = 10 if game_state.player_side == 'J1' else 11
+    player_info = f"Vous jouez : {game_state.player_side}"
+    #stdscr.addstr(1, 0, player_info, curses.color_pair(player_color))
         # ===========================================================
     # ==================================================================
 
@@ -137,10 +98,10 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
         for x in range(view_x , end_view_x ):
             try:
                 tile = game_map.grid[y][x]
-                tile_char, color_pair = define_characters(tile)
+                tile_char, color_pair = define_characters(tile,game_state)
                 Case= tile_char if (x,y) not in unit_positions else unit_positions[(x, y)] 
-                if Case == 'V':
-                    color_pair = 4 
+                if isinstance(Case, tuple):
+                    Case, color_pair = Case
             except IndexError:
                 Case, color_pair = ('?', 4)
 
@@ -150,7 +111,7 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
             mapDisplay.addstr(Y , X, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
     mapDisplay.refresh()
 
-    Info_Display([ai])
+    Info_Display([ai],game_state)
     Connexion_Display("")
 
 
@@ -184,15 +145,25 @@ def Print_Display(Text,Color=3):
     printDisplay.refresh()
 
 
-def Info_Display(players):
-    infoDisplay.addstr(1,1,"Informations:")
+def Info_Display(players, game_state):
+    player_color = 10 if game_state.player_side == 'J1' else 11
+
+    infoDisplay.addstr(1,1,f"Vous jouez: {game_state.player_side}", curses.color_pair(player_color))
+    infoDisplay.addstr(2,1,"Informations:")
     infoDisplay.border( 0 )
     joueur_x = 0
-    for ai in players:
+
+    ####################################################
+
+
+    ####################################################
+
+    for player in players:
+
         joueur_x += 1
-        resources_info = (f"Bois: {ai.resources['Wood']} Or: {ai.resources['Gold']} "
-                            f"Nourriture: {ai.resources['Food']} "
-                            f"Population: {ai.population}/{ai.population_max}")
+        resources_info = (f"Bois: {player.resources['Wood']} Or: {player.resources['Gold']} "
+                            f"Nourriture: {player.resources['Food']} "
+                            f"Population: {player.population}/{player.population_max}")
         infoDisplay.addstr(2 * joueur_x,1,resources_info)
 
     infoDisplay.refresh()

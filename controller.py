@@ -479,7 +479,7 @@ def game_loop_curses(stdscr):
 
         # Gère les entrées utilisateur et affiche la carte en curses
         view_x, view_y = handle_input(stdscr, view_x, view_y, max_height, max_width, game_map)
-        display_with_curses(stdscr, game_map, units, buildings, player_side_state, view_x, view_y, max_height, max_width)
+        display_with_curses(stdscr, game_map, units, player_side_state, ai, view_x, view_y)
         last_update_time = update_game(units, buildings, game_map, ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
         
         # Send periodic updates to C process (every 0.5 seconds)
