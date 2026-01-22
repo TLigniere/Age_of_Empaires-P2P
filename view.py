@@ -33,33 +33,21 @@ def define_boxes(stdscr, game_map):
     """Définit les différentes boîtes pour l'affichage."""
     global mapDisplay, printDisplay, connexionDisplay, infoDisplay
 
-    global max_clm, max_row, modu_X, modu_Y, row_num, clm_num
+    global max_clm, max_row
     
     stdscr.clear() 
     stdscr.refresh()
 
     max_height, max_width = stdscr.getmaxyx()
     
-    init_max_row,init_max_clm=stdscr.getmaxyx()
-    max_clm=int(init_max_clm/2-3)
-    max_row=init_max_row-7
-
-    row_num=len(game_map.grid)   #Row correspond à X coordonnées
-    clm_num=len(game_map.grid[0])
-
-
-    modu_X = max_width % max_clm
-    modu_Y = max_height % max_row
+    max_clm=int(max_width/2-3)
+    max_row=max_height-7
     
     mapDisplay = curses.newwin(max_height - 5, int(max_width / 2), 0, 0)
     printDisplay = curses.newwin(5, max_width, max_height - 5, 0)
     connexionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
     infoDisplay = curses.newwin(max_height - 5, int(max_width / 2), 5, int(max_width / 2))
 
-    mapDisplay.border( 0 )
-
-    connexionDisplay.border( 0 )
-    infoDisplay.border( 0 )
 
 
 def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width):
@@ -70,19 +58,12 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
     except NameError:
         define_boxes(stdscr, game_map)
 
-    X_start_of_cage = 1 + (max_clm * ( view_x - 1) )
-    X_end_of_cage = ( modu_X if view_x == max_clm and modu_X != 0 else max_clm ) + 1 + ( max_clm * ( view_x - 1 ) )
-    Y_start_of_cage =  1 + (max_row * ( view_y - 1) )
-    Y_end_of_cage = ( modu_Y if view_y == max_row and modu_Y != 0 else max_row ) + 1 + ( max_row * ( view_y - 1 ) )
-
-
     unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
     #stdscr.border( 0 )
     mapDisplay.border( 0 )
 
     # Affiche la portion visible de la carte en fonction de view_x et view_y
-#    for y in range(view_y, min(view_y + max_height, game_map.height)):
-#        for x in range(view_x, min(view_x + max_width, game_map.width)):
+
     end_view_y = view_y + max_row
     end_view_x = view_x + int(max_clm / 2)
 
@@ -141,10 +122,18 @@ def Connexion_Display(Text):
     connexionDisplay.addstr(1, 1, str(connexion_info))
     connexionDisplay.refresh()
 
+Queue = [] 
+
 def Print_Display(Text):
     printDisplay.erase()
-    printDisplay.border( 0 )    
-    printDisplay.addstr(1, 1, str(Text))
+    printDisplay.border( 0 )
+
+    Queue.insert(0, Text)
+
+    for i in range(0, 3):
+        Text_to_display = Queue[i] if len(Queue) > i else ""
+        printDisplay.addstr(i+1, 1, str(Text_to_display))
+
     printDisplay.refresh()
 
 
