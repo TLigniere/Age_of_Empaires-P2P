@@ -46,9 +46,9 @@ def define_boxes(stdscr, game_map):
     mapDisplay = curses.newwin(max_height - 5, int(max_width / 2), 0, 0)
     printDisplay = curses.newwin(5, max_width, max_height - 5, 0)
     connexionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
-    infoDisplay = curses.newwin(max_height - 5, int(max_width / 2), 5, int(max_width / 2))
+    infoDisplay = curses.newwin(max_height - 10, int(max_width / 2), 5, int(max_width / 2))
 
-
+    Print_Display("Affichage initialisé.")
 
 def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width):
     
@@ -59,7 +59,7 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
         define_boxes(stdscr, game_map)
 
     unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
-    #stdscr.border( 0 )
+
     mapDisplay.border( 0 )
 
     # Affiche la portion visible de la carte en fonction de view_x et view_y
@@ -78,36 +78,12 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
             except IndexError:
                 Case, color_pair = ('?', 4)
 
-
-            
- # Couleur pour le villageois
             Y = ( y - view_y + 1)
             X = ( x - view_x + 1)*2
-
-            #print( Case )
-            try:
-                mapDisplay.addstr(Y , X, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
-                #mapDisplay.addstr(Y, X, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
-            except:
-                #mapDisplay.addstr(Y , X, '?', curses.color_pair(3))
-                #mapDisplay.addstr(0, 0, "Erreur d'affichage aux coordonnées : ")
-                #mapDisplay.addstr(1, 0, f"X_start_of_cage: {X_start_of_cage}, X_end_of_cage: {X_end_of_cage}")
-                #mapDisplay.addstr(2, 0, f"Y_start_of_cage: {Y_start_of_cage}, Y_end_of_cage: {Y_end_of_cage}")
-                break
-            #stdscr.addch(y - view_y, x - view_x, Case, curses.color_pair(color_pair))  # Tuile vide représentée par un point
+            
+            mapDisplay.addstr(Y , X, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
     mapDisplay.refresh()
 
-    #Print_Display(f"Position: {view_x}, {view_y}")
-
-    # Afficher les ressources dans le Town Center
-    if buildings:
-        town_center = buildings[0]  # Supposons qu'il n'y a qu'un Town Center
-        resources_info = (f"Bois: {ai.resources['Wood']} Or: {ai.resources['Gold']} "
-                          f"Nourriture: {ai.resources['Food']} "
-                          f"Population: {ai.population}/{ai.population_max}")
-        #stdscr.addstr(0, 0, resources_info)  # Affiche les ressources en haut de l'écran
-
-    #stdscr.refresh()
     Info_Display([ai])
     Connexion_Display("")
 
@@ -124,18 +100,20 @@ def Connexion_Display(Text):
 
 Queue = [] 
 
-def Print_Display(Text):
+def Print_Display(Text,Color=3):
     printDisplay.erase()
     printDisplay.border( 0 )
 
-    Queue.insert(0, Text)
+    Queue.insert(0, [Text,Color])
     
     if len(Queue) > 3:
         Queue.pop()
 
     for i in range(0, 3):
-        Text_to_display = Queue[i] if len(Queue) > i else ""
-        printDisplay.addstr(i+1, 1, str(Text_to_display))
+        Text_to_display = Queue[i][0] if len(Queue) > i else ""
+        Color = Queue[i][1] if len(Queue) > i else False
+
+        printDisplay.addstr(i+1, 1, Text_to_display,curses.color_pair(Color)) 
 
     printDisplay.refresh()
 

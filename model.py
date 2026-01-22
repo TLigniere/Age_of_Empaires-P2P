@@ -1,7 +1,7 @@
 import random
 import heapq  # Pour la recherche de chemin
 import time
-from view import #Print_Display
+from view import Print_Display
 
 
 
@@ -159,7 +159,7 @@ class Unit:
             #Print_Display(f"{self.unit_type} récolte {amount} unités de {resource_type} à ({self.x}, {self.y}).")
             self.current_resource = resource_type  # Stocke le type de ressource
             if self.resource_collected >= self.max_capacity:
-                #Print_Display(f"{self.unit_type} a atteint sa capacité maximale en {resource_type}.")
+                ##Print_Display(f"{self.unit_type} a atteint sa capacité maximale en {resource_type}.")
                 self.returning_to_town_center = True  # Le villageois retourne au Town Center
             tile.resource = None  # La ressource est épuisée sur cette case
 
@@ -212,13 +212,13 @@ class Unit:
             # Récupération de la tuile et du bâtiment sur cette tuile
             farm_tile = game_map.grid[path[-1][1]][path[-1][0]]
             if farm_tile.building and not farm_tile.building.is_occupied() and not farm_tile.building.is_empty():
-                #Print_Display(f"Chemin trouvé vers la ferme à ({path[-1][0]}, {path[-1][1]})")
+                ##Print_Display(f"Chemin trouvé vers la ferme à ({path[-1][0]}, {path[-1][1]})")
                 return path
             else:
-                #Print_Display(f"La ferme à ({path[-1][0]}, {path[-1][1]}) est occupée ou épuisée.")
+                ##Print_Display(f"La ferme à ({path[-1][0]}, {path[-1][1]}) est occupée ou épuisée.")
                 return None
         else:
-            #Print_Display(f"Aucun chemin vers une ferme trouvé pour {self.unit_type} à ({self.x}, {self.y})")
+            ##Print_Display(f"Aucun chemin vers une ferme trouvé pour {self.unit_type} à ({self.x}, {self.y})")
             return None
 
 
@@ -226,18 +226,18 @@ class Unit:
         """ Utilise une recherche de chemin pour trouver l'or le plus proche """
         path = self.find_path(game_map, (self.x, self.y), 'Gold')
         #if path:
-            #Print_Display(f"Chemin trouvé vers l'or : ") #{path}
+            ##Print_Display(f"Chemin trouvé vers l'or : ") #{path}
         #else:
-            #Print_Display(f"Aucun chemin vers l'or trouvé pour {self.unit_type} à ({self.x}, {self.y})")
+            ##Print_Display(f"Aucun chemin vers l'or trouvé pour {self.unit_type} à ({self.x}, {self.y})")
         return path
 
     def find_nearest_wood(self, game_map):
         """ Utilise une recherche de chemin pour trouver le bois le plus proche """
         path = self.find_path(game_map, (self.x, self.y), 'Wood')
         #if path:
-            #Print_Display(f"Chemin trouvé vers le bois : ") #{path}
+            ##Print_Display(f"Chemin trouvé vers le bois : ") #{path}
         #else:
-            #Print_Display(f"Aucun chemin vers le bois trouvé pour {self.unit_type} à ({self.x}, {self.y})")
+            ##Print_Display(f"Aucun chemin vers le bois trouvé pour {self.unit_type} à ({self.x}, {self.y})")
         return path
 
 
@@ -246,14 +246,14 @@ class Unit:
         town_center = buildings[0]
         # Si le villageois est déjà sur la même tuile que le Town Center
         if (self.x, self.y) == (town_center.x, town_center.y):
-            #Print_Display(f"{self.unit_type} est déjà sur le Town Center.")
+            ##Print_Display(f"{self.unit_type} est déjà sur le Town Center.")
             return None  # Pas besoin de trouver un chemin
 
         path = self.find_path(game_map, (self.x, self.y), 'Town Center', town_center)
         #if path:
-            #Print_Display(f"Chemin trouvé vers le Town Center : {path}")
+            ##Print_Display(f"Chemin trouvé vers le Town Center : {path}")
         #else:
-            #Print_Display(f"Aucun chemin vers le Town Center trouvé pour {self.unit_type} à ({self.x}, {self.y})")
+            ##Print_Display(f"Aucun chemin vers le Town Center trouvé pour {self.unit_type} à ({self.x}, {self.y})")
         return path
 
     def find_path(self, game_map, start, target_type, target_building=None):
@@ -274,22 +274,22 @@ class Unit:
 
             # Vérification pour le bois
             if target_type == 'Wood' and game_map.grid[current[1]][current[0]].resource == 'Wood':
-                #Print_Display(f"Bois trouvé à {current}")  # Log la position du bois trouvé
+                ##Print_Display(f"Bois trouvé à {current}")  # Log la position du bois trouvé
                 return self.reconstruct_path(came_from, current)  # Retourner le chemin trouvé
 
             # Vérification pour l'or
             if target_type == 'Gold' and game_map.grid[current[1]][current[0]].resource == 'Gold':
-                #Print_Display(f"Or trouvé à {current}")  # Log la position de l'or trouvé
+                ##Print_Display(f"Or trouvé à {current}")  # Log la position de l'or trouvé
                 return self.reconstruct_path(came_from, current)  # Retourner le chemin trouvé
 
             # Vérification pour le Town Center
             if target_type == 'Town Center' and target_building and (current[0], current[1]) == (target_building.x, target_building.y):
-                #Print_Display(f"Town Center trouvé à {current}")  # Log la position du Town Center trouvé
+                ##Print_Display(f"Town Center trouvé à {current}")  # Log la position du Town Center trouvé
                 return self.reconstruct_path(came_from, current)
 
             # Vérification pour une ferme
             if target_type == 'Farm' and isinstance(game_map.grid[current[1]][current[0]].building, Building) and game_map.grid[current[1]][current[0]].building.building_type == 'Farm':
-                #Print_Display(f"Ferme trouvée à {current}")  # Log la position de la ferme trouvée
+                ##Print_Display(f"Ferme trouvée à {current}")  # Log la position de la ferme trouvée
                 return self.reconstruct_path(came_from, current)
 
             # Exploration des voisins
@@ -303,7 +303,7 @@ class Unit:
                         heapq.heappush(open_list, (priority, next_node))
                         came_from[next_node] = current
 
-        #Print_Display(f"Aucun chemin trouvé pour {target_type}")
+        ##Print_Display(f"Aucun chemin trouvé pour {target_type}")
         return None
 
     def reconstruct_path(self, came_from, current):
