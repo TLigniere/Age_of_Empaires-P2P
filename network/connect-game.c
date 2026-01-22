@@ -1,4 +1,4 @@
-//connect-game.c
+//connect-game.c v0.2.1
 //Compilation : gcc connect-game.c -o GameP2P.exe -lws2_32
 
 #include <stdio.h>
