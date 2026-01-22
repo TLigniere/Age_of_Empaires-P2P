@@ -70,7 +70,8 @@ class Map:
             if building.building_type == 'Farm':
                 self.grid[y][x].resource = 'Food'
 
-            print(f"Bâtiment {building.building_type} placé à ({x}, {y})")
+            network.send_message("BUILD", f"building:{building.building_type},x:{x},y:{y}")
+
 
 
 class Building:
@@ -133,7 +134,8 @@ class Building:
 
 
 class Unit:
-    def __init__(self, unit_type, x, y, ai):
+    def __init__(self, unit_type, x, y, ai, network):
+        self.network = network
         self.unit_type = unit_type  # Par exemple : 'Villager'
         self.x = x  # Position x sur la carte
         self.y = y  # Position y sur la carte
@@ -147,6 +149,7 @@ class Unit:
     def move(self, new_x, new_y):
         self.x = new_x
         self.y = new_y
+        self.network.send_message("MOVE", f"unit_id:{id(self)},x:{new_x},y:{new_y}")
 
     def gather_resource(self, game_map):
         """ Récolte une ressource si le villageois est sur une case contenant une ressource """
@@ -164,9 +167,8 @@ class Unit:
                 gathered_amount = min(20, self.max_capacity - self.resource_collected)
                 self.resource_collected += gathered_amount
                 self.current_resource = element.id
-                print(f"{self.unit_type} récolte {gathered_amount} unités de {element.id} à ({self.x}, {self.y}).")
-                if self.resource_collected >= self.max_capacity:
-                    self.returning_to_town_center = True
+                network.send_message("COLLECT", f"unit_id:{id(self)},resource:{element.id},amount:{gathered_amount},x:{self.x},y:{self.y}")                if self.resource_collected >= self.max_capacity:
+                self.returning_to_town_center = True
                 tile.resource = None
             else:
                 print(f"{self.unit_type} ne peut pas récolter {element.id}, réseau occupé par un autre joueur.")
@@ -203,7 +205,8 @@ class Unit:
             food_gathered = self.working_farm.gather_food(amount)
             self.resource_collected += food_gathered
             self.current_resource = 'Food'
-            print(f"{self.unit_type} récolte {food_gathered} unités de nourriture.")
+            network.send_message("COLLECT", f"unit_id:{id(self)},resource:Food,amount:{food_gathered},x:{self.x},y:{self.y}")
+
 
             if self.resource_collected >= self.max_capacity:
                 print(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
@@ -218,7 +221,7 @@ class Unit:
     def deposit_resource(self, building):
         if building and building.building_type == 'Town Center' and self.current_resource:
             # Appelle directement AI pour gérer les ressources
-            print(f"{self.unit_type} dépose {self.resource_collected} unités de {self.current_resource} au Town Center.")
+            network.send_message("DEPOSIT", f"unit_id:{id(self)},resource:{self.current_resource},amount:{self.resource_collected},x:{building.x},y:{building.y}")
             self.ai.update_resources(self.current_resource, self.resource_collected)
             self.resource_collected = 0
             self.returning_to_town_center = False

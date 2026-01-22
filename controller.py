@@ -715,7 +715,6 @@ def init_game():
 
 
 class NetworkClient:
-<<<<<<< HEAD
     def __init__(self, python_port=5000, dest_port=6000):
         self.connected = True
         self.inbox = []
@@ -760,7 +759,8 @@ class NetworkClient:
     def is_connected(self):
         return self.connected
     
-    def send_to_c(self, message, dest_port=6000):
+    def send_to_c(self, msg_type, payload="", dest_port=6000):
+        message = f"{msg_type}|{payload}" if payload else msg_type
         dest_addr = ("127.0.0.1", self.dest_port)
         self.sock.sendto(message.encode(), dest_addr)
 
