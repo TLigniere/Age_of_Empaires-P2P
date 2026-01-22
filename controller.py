@@ -33,9 +33,19 @@ DEFAULT_SAVE = os.path.join(SAVE_DIR, "default_game.pkl")
 GAME_PLAYING = "PLAYING"
 GAME_PAUSED = "PAUSED"
 
+# Simple GameState object to track player_side and AI resources
+class GameState:
+    def __init__(self):
+        self.player_side = 'J1'  # Default to J1
+        self.player_ai = None  # Will be set later
+        
+    def set_player_ai(self, ai_obj):
+        self.player_ai = ai_obj
+
 # Global Variables
 units, buildings, game_map, ai = None, None, None, None
 game_state = GAME_PLAYING
+player_side_state = GameState()  # Track player side
 
 class GameElement:
     def __init__(self, id, owner=None):
@@ -139,6 +149,59 @@ def clear_input_buffer(stdscr):
             break
     stdscr.nodelay(False)
 
+
+
+def choose_player_side_curses(stdscr):
+    """Menu de sélection du camp (J1 ou J2) en mode curses"""
+    options = ["Jouer en tant que Joueur 1 (Bleu)", "Jouer en tant que Joueur 2 (Rouge)"]
+    selected = 0
+    
+    while True:
+        stdscr.clear()
+        stdscr.addstr(0, 0, "=== Choisissez votre camp ===")
+        for i, option in enumerate(options):
+            if i == selected:
+                stdscr.addstr(i + 2, 0, option, curses.A_REVERSE)
+            else:
+                stdscr.addstr(i + 2, 0, option)
+        stdscr.refresh()
+        
+        key = stdscr.getch()
+        if key == curses.KEY_DOWN:
+            selected = (selected + 1) % 2
+        elif key == curses.KEY_UP:
+            selected = (selected - 1) % 2
+        elif key == ord('\n'):
+            return 'J1' if selected == 0 else 'J2'
+
+
+def choose_player_side_graphics(screen, font):
+    """Menu de sélection du camp (J1 ou J2) en mode graphique"""
+    options = ["Jouer en tant que Joueur 1 (Bleu)", "Jouer en tant que Joueur 2 (Rouge)"]
+    selected = 0
+    running = True
+    
+    while running:
+        screen.fill((0, 0, 0))
+        title = font.render("=== Choisissez votre camp ===", True, (255, 255, 255))
+        screen.blit(title, (20, 50))
+        
+        for i, option in enumerate(options):
+            color = (255, 255, 255) if i == selected else (100, 100, 100)
+            text = font.render(option, True, color)
+            screen.blit(text, (20, 120 + i * 50))
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit(0)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_DOWN:
+                    selected = (selected + 1) % 2
+                elif event.key == pygame.K_UP:
+                    selected = (selected - 1) % 2
+                elif event.key == pygame.K_RETURN:
+                    return 'J1' if selected == 0 else 'J2'
 
 
 def signal_handler(sig, frame):
@@ -342,7 +405,7 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    global units, buildings, game_map, ai
+    global units, buildings, game_map, ai, game_state
 
     network = NetworkClient()
 
@@ -374,7 +437,7 @@ def game_loop_curses(stdscr):
 
         # Gère les entrées utilisateur et affiche la carte en curses
         view_x, view_y = handle_input(stdscr, view_x, view_y, max_height, max_width, game_map)
-        display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width)
+        display_with_curses(stdscr, game_map, units, buildings, player_side_state, view_x, view_y, max_height, max_width)
         last_update_time = update_game(units, buildings, game_map, ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
 
         key = stdscr.getch()
@@ -387,7 +450,7 @@ def game_loop_curses(stdscr):
 
 # Correction dans la fonction game_loop_graphics
 def game_loop_graphics():
-    global units, buildings, game_map, ai
+    global units, buildings, game_map, ai, game_state
 
     network = NetworkClient()
 
@@ -416,7 +479,7 @@ def game_loop_graphics():
         last_update_time = update_game(units, buildings, game_map, ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
 
         # Rendu de la carte et des unités
-        render_map(screen, game_map, units, buildings, ai, view_x, view_y, max_width, max_height)
+        render_map(screen, game_map, units, buildings, player_side_state, view_x, view_y, max_width, max_height)
 
 
         # Gérer les événements Pygame (fermeture de fenêtre, bascule de mode, menu)
@@ -529,7 +592,11 @@ def start_new_game_curses(stdscr):
         speed = 1.0
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai
+    global units, buildings, game_map, ai, player_side_state
+    
+    # Ask player to choose their side (J1 or J2)
+    player_side_state.player_side = choose_player_side_curses(stdscr)
+    
     game_map = Map(map_size, map_size)
     game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=gold_clusters)
@@ -549,6 +616,9 @@ def start_new_game_curses(stdscr):
     # Mettre à jour les unités avec l'instance correcte de l'IA
     for unit in units:
         unit.ai = ai
+    
+    # Set the player AI in game state
+    player_side_state.set_player_ai(ai)
 
     # Lancer la boucle de jeu avec curses
     curses.wrapper(game_loop_curses)
@@ -669,7 +739,11 @@ def start_new_game_graphics(screen, font):
         speed = 1.0
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai, ai
+    global units, buildings, game_map, ai, player_side_state
+    
+    # Ask player to choose their side (J1 or J2)
+    player_side_state.player_side = choose_player_side_graphics(screen, font)
+    
     game_map = Map(120, 120)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
@@ -682,6 +756,9 @@ def start_new_game_graphics(screen, font):
     units = [villager, villager2, villager3]
     buildings = [town_center]
     ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+    
+    # Set the player AI in game state
+    player_side_state.set_player_ai(ai)
 
     # Lancer la boucle de jeu graphique
     game_loop_graphics()
@@ -693,7 +770,8 @@ def render_text(screen, font, text, position, color=(255, 255, 255)):
 
 
 def init_game():
-    global units, buildings, game_map, ai, ai
+    global units, buildings, game_map, ai, player_side_state
+    player_side_state.player_side = 'J1'  # Set player side (default J1)
     os.makedirs(SAVE_DIR, exist_ok=True)
     loaded_units, loaded_buildings, loaded_map, loaded_ai = load_game_state(DEFAULT_SAVE)
     if loaded_units and loaded_buildings and loaded_map and loaded_ai:
@@ -711,6 +789,9 @@ def init_game():
         units = [villager, villager2, villager3]
         buildings = [town_center]
         ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+        
+        # Set the player AI in game state
+        player_side_state.set_player_ai(ai)
 
 
 
