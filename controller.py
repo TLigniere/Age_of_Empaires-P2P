@@ -10,6 +10,7 @@ from view_graphics import handle_input_pygame, render_map, screen_width, screen_
 from game_utils import save_game_state, load_game_state
 import socket
 import time
+
 import select
 import json 
 
@@ -714,6 +715,7 @@ def init_game():
 
 
 class NetworkClient:
+<<<<<<< HEAD
     def __init__(self, python_port=5000, dest_port=6000):
         self.connected = True
         self.inbox = []
@@ -761,6 +763,7 @@ class NetworkClient:
     def send_to_c(self, message, dest_port=6000):
         dest_addr = ("127.0.0.1", self.dest_port)
         self.sock.sendto(message.encode(), dest_addr)
+
 
 def main():
     # Ne pas initialiser pygame à moins que le mode graphique soit spécifié
