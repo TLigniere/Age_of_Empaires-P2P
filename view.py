@@ -130,7 +130,6 @@ def Print_Display(Text):
 
     Queue.insert(0, Text)
     
-    # Keep only the last 3 items to prevent infinite growth
     if len(Queue) > 3:
         Queue.pop()
 
