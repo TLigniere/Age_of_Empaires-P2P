@@ -3,6 +3,23 @@ import heapq  # Pour la recherche de chemin
 import time
 
 
+class GameElement:
+    """Represents a game element with network control capabilities"""
+    def __init__(self, id, owner=None):
+        self.id = id
+        self.owner = owner                  # Logical owner
+        self.network_owner = owner          # Network control owner
+        self.state = {}                     # Element state
+
+    def can_modify(self, player):
+        return self.network_owner == player
+
+    def modify(self, player, changes):
+        if self.can_modify(player):
+            self.state.update(changes)
+            return True
+        return False
+
 
 class Tile:
     def __init__(self):
