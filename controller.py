@@ -9,6 +9,7 @@ from view import display_with_curses, handle_input, init_colors
 from view_graphics import handle_input_pygame, render_map, screen_width, screen_height, TILE_WIDTH, TILE_HEIGHT, initialize_graphics
 from game_utils import save_game_state, load_game_state
 import socket
+import time
 import select
 import json 
 
@@ -713,22 +714,53 @@ def init_game():
 
 
 class NetworkClient:
-    def __init__(self):
+    def __init__(self, python_port=5000, dest_port=6000):
         self.connected = True
         self.inbox = []
+        self.last_msg_time = time.time()
+        self.dest_port = dest_port
+
+        # Socket UDP
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("127.0.0.1", python_port))
+        self.sock.setblocking(False)  # Non bloquant
 
     def _read_from_c(self):
-        return []
+        messages = []
+        try:
+            while True:
+                data, addr = self.sock.recvfrom(4096)
+                messages.append(data.decode())
+                self.last_msg_time = time.time()
+        except BlockingIOError:
+            pass
+        return messages
 
     def poll(self):
-        for msg in self._read_from_c():
-            if msg.type == "SYSTEM" and msg.code == "DISCONNECTED":
+        """Poll les messages et les met dans self.inbox"""
+        for raw_msg in self._read_from_c():
+            if "|" in raw_msg:
+                msg_type, payload = raw_msg.split("|", 1)
+            else:
+                msg_type = raw_msg
+                payload = ""
+            
+            if msg_type == "SYSTEM" and payload.startswith("DISCONNECTED"):
                 self.connected = False
             else:
-                self.inbox.append(msg)
+                # Stocke sous forme de tuple (type, payload)
+                self.inbox.append((msg_type, payload))
+
+        # Si plus de message depuis 2s → on considère la connexion perdue
+        if time.time() - self.last_msg_time > 2.0:
+            self.connected = False
 
     def is_connected(self):
         return self.connected
+    
+    def send_to_c(self, message, dest_port=6000):
+        dest_addr = ("127.0.0.1", self.dest_port)
+        self.sock.sendto(message.encode(), dest_addr)
 
 def main():
     # Ne pas initialiser pygame à moins que le mode graphique soit spécifié
