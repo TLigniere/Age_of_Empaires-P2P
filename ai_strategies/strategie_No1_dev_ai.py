@@ -13,7 +13,7 @@ class StrategieNo1(AIStrategy):
                     if (unit.x, unit.y) == (buildings[0].x, buildings[0].y):
                         unit.deposit_resource(buildings[0])
                         unit.returning_to_town_center = False  # Réinitialisation
-                        print(f"{unit.unit_type} retourne à la sélection de ressources après dépôt.")
+                       #print(f"{unit.unit_type} retourne à la sélection de ressources après dépôt.")
 
             else:
                 # Recherche et choix de la ressource la plus proche disponible
@@ -29,7 +29,7 @@ class StrategieNo1(AIStrategy):
 
                 # Sélection de la ressource la plus proche
                 nearest_resource = min(paths.items(), key=lambda x: x[1][1])
-                print(f"{unit.unit_type} sélectionne la ressource la plus proche : {nearest_resource[0]}")
+               #print(f"{unit.unit_type} sélectionne la ressource la plus proche : {nearest_resource[0]}")
 
                 if nearest_resource[1][0]:  # Si un chemin est trouvé
                     next_step = nearest_resource[1][0].pop(0)

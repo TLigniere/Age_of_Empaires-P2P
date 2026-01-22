@@ -1,4 +1,5 @@
 import curses
+#from controller import mapDisplay, printDisplay, positionDisplay, infoDisplay
 
 def init_colors():
     """Initialise les couleurs pour l'affichage."""
@@ -11,29 +12,57 @@ def init_colors():
     curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_BLACK)  # Magenta pour les fermes
     curses.init_pair(7, curses.COLOR_BLUE, curses.COLOR_BLACK)  # Bleu pour d'autres bâtiments (ex: Casernes)
 
-def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width):
-    stdscr.clear()  # Efface l'écran pour éviter les résidus
-    unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
+def define_characters(tile):
+    """Définit le caractère à afficher en fonction du type de tuile."""
+    if tile.building:
+        if tile.building.building_type == 'Town Center':
+            return ('T', 5)  # Town Center
+        elif tile.building.building_type == 'Farm':
+            return ('F', 6)  # Ferme
+        elif tile.building.building_type == 'Barracks':
+            return ('B', 7)  # Casernes
+        
+    if tile.resource == 'Wood':
+        return ('W', 1)  # Bois
+    elif tile.resource == 'Gold':
+        return ('G', 2)  # Or
+    else:
+        return ('.', 3)  # Tuile vide représentée par un point
+    
+def define_boxes(stdscr):
+    """Définit les différentes boîtes pour l'affichage."""
+    global mapDisplay, printDisplay, positionDisplay, infoDisplay
+    
+    max_height, max_width = stdscr.getmaxyx()
+    
+    
+    
+    mapDisplay = curses.newwin(max_height - 5, int(max_width / 2), 0, 0)
+    printDisplay = curses.newwin(5, max_width, max_height - 5, 0)
+    positionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
+    infoDisplay = curses.newwin(max_height - 5, int(max_width / 2), 5, int(max_width / 2))
 
+
+def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, max_height, max_width):
+    
+    #stdscr.clear()  # Efface l'écran pour éviter les résidus
+    try:
+        mapDisplay.clear()
+    except NameError:
+        define_boxes(stdscr)
+
+
+    unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
+    mapDisplay.border( 0 )
     # Affiche la portion visible de la carte en fonction de view_x et view_y
     for y in range(view_y, min(view_y + max_height, game_map.height)):
         for x in range(view_x, min(view_x + max_width, game_map.width)):
             tile = game_map.grid[y][x]
-            if (x, y) in unit_positions:
-                stdscr.addch(y - view_y, x - view_x, unit_positions[(x, y)], curses.color_pair(4))  # Villageois en cyan
-            elif tile.building:
-                if tile.building.building_type == 'Town Center':
-                    stdscr.addch(y - view_y, x - view_x, 'T', curses.color_pair(5))  # Town Center en rouge
-                elif tile.building.building_type == 'Farm':
-                    stdscr.addch(y - view_y, x - view_x, 'F', curses.color_pair(6))  # Ferme en magenta
-                elif tile.building.building_type == 'Barracks':
-                    stdscr.addch(y - view_y, x - view_x, 'B', curses.color_pair(7))  # Casernes en bleu
-            elif tile.resource == 'Wood':
-                stdscr.addch(y - view_y, x - view_x, 'W', curses.color_pair(1))  # Bois en vert
-            elif tile.resource == 'Gold':
-                stdscr.addch(y - view_y, x - view_x, 'G', curses.color_pair(2))  # Or en jaune
-            else:
-                stdscr.addch(y - view_y, x - view_x, '.', curses.color_pair(3))  # Tuile vide représentée par un point
+            tile_char, color_pair = define_characters(tile)
+            Case= tile_char if (x,y) in unit_positions else unit_positions[(x, y)]
+            
+            mapDisplay.addch(y - view_y +1, x - view_x +1, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
+            #stdscr.addch(y - view_y, x - view_x, Case, curses.color_pair(color_pair))  # Tuile vide représentée par un point
 
     # Afficher les ressources dans le Town Center
     if buildings:
@@ -41,7 +70,7 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
         resources_info = (f"Bois: {ai.resources['Wood']} Or: {ai.resources['Gold']} "
                           f"Nourriture: {ai.resources['Food']} "
                           f"Population: {ai.population}/{ai.population_max}")
-        stdscr.addstr(0, 0, resources_info)  # Affiche les ressources en haut de l'écran
+        #stdscr.addstr(0, 0, resources_info)  # Affiche les ressources en haut de l'écran
 
     stdscr.refresh()
 
