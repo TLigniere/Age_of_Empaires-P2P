@@ -318,11 +318,11 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    global units, buildings, game_map, ai, mapDisplay, printDisplay, positionDisplay, infoDisplay      
+    global units, buildings, game_map, ai  
 
     max_height, max_width = stdscr.getmaxyx()
-    max_height -= max_height - 10
-    max_width -= int(max_width/2-20)
+    max_height = max_height - 10
+    max_width = int(max_width/2-20)
     view_x, view_y = 0, 0
 
     stdscr.nodelay(True)

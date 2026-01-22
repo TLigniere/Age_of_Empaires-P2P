@@ -84,8 +84,8 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
 #    for y in range(view_y, min(view_y + max_height, game_map.height)):
 #        for x in range(view_x, min(view_x + max_width, game_map.width)):
 
-    for y in range(view_x, game_map.height + view_x):
-        for x in range(view_y, game_map.width + view_y):
+    for y in range(view_y , min(view_y + game_map.height, game_map.height)):
+        for x in range(view_x , min(view_x + game_map.width, game_map.width)):
             try:
                 tile = game_map.grid[y][x]
                 tile_char, color_pair = define_characters(tile)
@@ -98,8 +98,8 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
 
             
  # Couleur pour le villageois
-            Y = ( y )
-            X = ( x )*2
+            Y = ( y - view_y )
+            X = ( x - view_x )*2
 
             #print( Case )
             try:
@@ -125,6 +125,7 @@ def display_with_curses(stdscr, game_map, units, buildings, ai, view_x, view_y, 
         #stdscr.addstr(0, 0, resources_info)  # Affiche les ressources en haut de l'écran
 
     #stdscr.refresh()
+    Info_Display([ai])
 
 
 def Print_Display(Text):
@@ -133,6 +134,35 @@ def Print_Display(Text):
     printDisplay.addstr(1, 1, str(Text))
     printDisplay.refresh()
 
+
+def Info_Display(players):
+    infoDisplay.addstr(1,1,"Informations:")
+    infoDisplay.border( 0 )
+    for ai in players:
+        resources_info = (f"Bois: {ai.resources['Wood']} Or: {ai.resources['Gold']} "
+                            f"Nourriture: {ai.resources['Food']} "
+                            f"Population: {ai.population}/{ai.population_max}")
+        infoDisplay.addstr(2,1,resources_info)
+
+    infoDisplay.refresh()
+    """
+    infoDisplay.erase()
+    x=1
+    for faction in Factions:
+        for ressources in faction.inventory:
+            variable = faction.inventory[ressources]
+            infoDisplay.addstr(x,1,f"{faction.name} {ressources}:{variable}") 
+            x=x+1
+
+    key = f"{p_position[0]},{p_position[1]}"
+    infoCase = M[p_position[1]-1][p_position[0]-1] if units_in_cage.get(key) == None else units_in_cage.get(key)
+    j=x+1
+    for i in vars(infoCase) :
+        variable = vars(infoCase)[i] if i!="path" else None
+        infoDisplay.addstr(j,1,f"{i}:{variable}")
+        j=j+1
+    infoDisplay.refresh()
+    """
 
 
 
