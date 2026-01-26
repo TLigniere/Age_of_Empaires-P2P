@@ -5,7 +5,7 @@ import pygame
 import sys
 import signal
 from model import Map, Unit, Building
-from view import display_with_curses, handle_input, init_colors
+from view import display_with_curses, handle_input, init_colors, Print_Display
 from view_graphics import handle_input_pygame, render_map, screen_width, screen_height, TILE_WIDTH, TILE_HEIGHT, initialize_graphics
 from game_utils import save_game_state, load_game_state
 import socket
@@ -79,9 +79,9 @@ def load_existing_game(filename):
     loaded_units, loaded_buildings, loaded_map, loaded_ai = load_game_state(filename)
     if loaded_units and loaded_buildings and loaded_map and loaded_ai:
         units, buildings, game_map, ai = loaded_units, loaded_buildings, loaded_map, loaded_ai
-        print(f"[INFO] Chargé : {filename}")
+        Print_Display(f"[INFO] Chargé : {filename}")
     else:
-        print("[ERROR] Chargement échoué. Le fichier est corrompu ou n'existe pas.")
+        Print_Display("[ERROR] Chargement échoué. Le fichier est corrompu ou n'existe pas.")
         
 
 def load_existing_game_curses(stdscr):
@@ -212,7 +212,7 @@ def choose_player_side_graphics(screen, font):
 
 
 def signal_handler(sig, frame):
-    print("[INFO] Exiting due to CTRL+C")
+    Print_Display("[INFO] Exiting due to CTRL+C")
     curses.endwin()
     sys.exit(0)
 
@@ -291,7 +291,7 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
             bld_msg = f"type:{building.building_type},x:{building.x},y:{building.y},owner:{building.owner}"
             network.send_to_c("BUILDING_STATE", bld_msg)
     except Exception as e:
-        print(f"[WARNING] Error sending game state to C: {str(e)}")
+        Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
 
 def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0):
     """Check if it's time to autosave (every save_interval seconds)"""
@@ -300,7 +300,7 @@ def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_ti
             save_game_state(units, buildings, game_map, ai, DEFAULT_SAVE)
             return current_time
     except Exception as e:
-        print(f"[WARNING] Autosave failed: {e}")
+        Print_Display(f"[WARNING] Autosave failed: {e}")
     return last_save_time
 
 def escape_menu_curses(stdscr):
@@ -522,7 +522,7 @@ def game_loop_graphics():
 
         network.poll()
         if not network.is_connected():
-            print("Connexion perdue")
+            Print_Display("Connexion perdue")
             continue
         
         # Gère les entrées utilisateur pour le scrolling de la carte
@@ -880,12 +880,12 @@ class NetworkClient:
                 self.sock.bind(("127.0.0.1", python_port))
                 self.sock.setblocking(False)  # Non bloquant
                 self.connected = True
-                print("[INFO] Network client initialized and listening")
+                Print_Display("[INFO] Network client initialized and listening")
             except OSError as e:
-                print(f"[WARNING] Failed to initialize network: {e}")
+                Print_Display(f"[WARNING] Failed to initialize network: {e}")
                 self.connected = False
         else:
-            print("[INFO] Network is disabled - running in local mode")
+            Print_Display("[INFO] Network is disabled - running in local mode")
 
     def _read_from_c(self):
         messages = []
@@ -904,7 +904,7 @@ class NetworkClient:
         except (ConnectionResetError, OSError) as e:
             # Connection closed by remote host or other socket error
             self.connected = False
-            print(f"[WARNING] Network error: {e}")
+            Print_Display(f"[WARNING] Network error: {e}")
         return messages
 
     def poll(self):
@@ -923,7 +923,7 @@ class NetworkClient:
                     # Stocke sous forme de tuple (type, payload)
                     self.inbox.append((msg_type, payload))
         except Exception as e:
-            print(f"[WARNING] Error in poll: {e}")
+            Print_Display(f"[WARNING] Error in poll: {e}")
             self.connected = False
 
         # Si plus de message depuis 2s → on considère la connexion perdue
@@ -950,9 +950,9 @@ class NetworkClient:
             self.sock.sendto(message.encode(), dest_addr)
         except (ConnectionResetError, OSError) as e:
             self.connected = False
-            print(f"[WARNING] Failed to send to C: {e}")
+            Print_Display(f"[WARNING] Failed to send to C: {e}")
         except Exception as e:
-            print(f"[WARNING] Unexpected error sending to C: {e}")
+            Print_Display(f"[WARNING] Unexpected error sending to C: {e}")
 
 
 def main():

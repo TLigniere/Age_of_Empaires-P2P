@@ -81,16 +81,6 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
 
     mapDisplay.border( 0 )
 
-
-                
-    # ==================================================================
-        # ========== NOUVEAU : Afficher le camp du joueur ==========
-    player_color = 10 if game_state.player_side == 'J1' else 11
-    player_info = f"Vous jouez : {game_state.player_side}"
-    #stdscr.addstr(1, 0, player_info, curses.color_pair(player_color))
-        # ===========================================================
-    # ==================================================================
-
     end_view_y = view_y + max_row
     end_view_x = view_x + int(max_clm / 2)
 
@@ -128,21 +118,25 @@ def Connexion_Display(Text):
 Queue = [] 
 
 def Print_Display(Text,Color=3):
-    printDisplay.erase()
-    printDisplay.border( 0 )
+    try:
+        printDisplay.erase()
+        printDisplay.border( 0 )
 
-    Queue.insert(0, [Text,Color])
-    
-    if len(Queue) > 3:
-        Queue.pop()
+        Queue.insert(0, [Text,Color])
+        
+        if len(Queue) > 3:
+            Queue.pop()
 
-    for i in range(0, 3):
-        Text_to_display = Queue[i][0] if len(Queue) > i else ""
-        Color = Queue[i][1] if len(Queue) > i else False
+        for i in range(0, 3):
+            Text_to_display = Queue[i][0] if len(Queue) > i else ""
+            Color = Queue[i][1] if len(Queue) > i else False
 
-        printDisplay.addstr(i+1, 1, Text_to_display,curses.color_pair(Color)) 
+            printDisplay.addstr(i+1, 1, Text_to_display,curses.color_pair(Color)) 
 
-    printDisplay.refresh()
+        printDisplay.refresh()
+        
+    except NameError:
+        print(Text)
 
 
 def Info_Display(players, game_state):
