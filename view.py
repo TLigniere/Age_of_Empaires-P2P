@@ -53,10 +53,15 @@ def define_boxes(stdscr, game_map):
     max_clm=int(max_width/2-3)
     max_row=max_height-7
     
-    mapDisplay = curses.newwin(max_height - 5, int(max_width / 2), 0, 0)
-    printDisplay = curses.newwin(5, max_width, max_height - 5, 0)
+    mapDisplay = curses.newwin(max_height, int(max_width / 2), 0, 0)
+    infoDisplay =  curses.newwin(max_height - 20, int(max_width / 2), 5, int(max_width / 2))
     connexionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
-    infoDisplay = curses.newwin(max_height - 10, int(max_width / 2), 5, int(max_width / 2))
+    printDisplay = curses.newwin(15, int(max_width / 2), max_height - 15, int(max_width / 2))
+
+    max_row,max_height = mapDisplay.getmaxyx()
+
+    max_clm=int(max_width/2-3)
+    max_row=max_row - 2
 
     Print_Display("Affichage initialisé.")
 
@@ -122,12 +127,16 @@ def Print_Display(Text,Color=3):
         printDisplay.erase()
         printDisplay.border( 0 )
 
+        Text=str(Text)
+
+        Display_Height, Display_Width = printDisplay.getmaxyx()
+
         Queue.insert(0, [Text,Color])
         
-        if len(Queue) > 3:
+        if len(Queue) > Display_Height -2 :
             Queue.pop()
 
-        for i in range(0, 3):
+        for i in range(0, Display_Height -2):
             Text_to_display = Queue[i][0] if len(Queue) > i else ""
             Color = Queue[i][1] if len(Queue) > i else False
 

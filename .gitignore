@@ -9,6 +9,7 @@ __pycache__/
 
 # Game saves
 saves/
+*.pkl
 
 # venv
 venv/
