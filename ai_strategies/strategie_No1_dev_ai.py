@@ -10,6 +10,9 @@ class StrategieNo1(AIStrategy):
                 if path:
                     next_step = path.pop(0)
                     unit.move(*next_step)
+                    # Envoyer un ping à chaque mouvement
+                    if self.network:
+                        self.network.send_ping(id(unit), unit.x, unit.y)
                     if (unit.x, unit.y) == (buildings[0].x, buildings[0].y):
                         unit.deposit_resource(buildings[0])
                         unit.returning_to_town_center = False  # Réinitialisation
@@ -34,6 +37,9 @@ class StrategieNo1(AIStrategy):
                 if nearest_resource[1][0]:  # Si un chemin est trouvé
                     next_step = nearest_resource[1][0].pop(0)
                     unit.move(*next_step)
+                    # Envoyer un ping à chaque mouvement
+                    if self.network:
+                        self.network.send_ping(id(unit), unit.x, unit.y)
 
                     # Action de récolte en fonction de la ressource choisie
                     if nearest_resource[0] == 'Food':
