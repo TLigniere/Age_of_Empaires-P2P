@@ -293,15 +293,15 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
     except Exception as e:
         Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
 
-# def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0):
-#     """Check if it's time to autosave (every save_interval seconds)"""
-#     try:
-#         if current_time - last_save_time > save_interval:
-#             save_game_state(units, buildings, game_map, ai, DEFAULT_SAVE)
-#             return current_time
-#     except Exception as e:
-#         Print_Display(f"[WARNING] Autosave failed: {e}")
-#     return last_save_time
+def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0):
+    """Check if it's time to autosave (every save_interval seconds)"""
+    try:
+        if current_time - last_save_time > save_interval:
+            save_game_state(units, buildings, game_map, ai, DEFAULT_SAVE)
+            return current_time
+    except Exception as e:
+        Print_Display(f"[WARNING] Autosave failed: {e}")
+    return last_save_time
 
 def escape_menu_curses(stdscr):
     options = ["1. Sauvegarder", "2. Charger", "3. Reprendre", "4. Retour au Menu Principal", "5. Quitter"]
@@ -489,7 +489,7 @@ def game_loop_curses(stdscr):
             last_network_send_time = current_time
         
         # Auto-save game state (every 5 seconds)
-        # last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
+        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
         key = stdscr.getch()
         if key == curses.KEY_F12:
@@ -537,7 +537,7 @@ def game_loop_graphics():
             last_network_send_time = current_time
         
         # Auto-save game state (every 5 seconds)
-        # last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
+        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
         # Rendu de la carte et des unités
         render_map(screen, game_map, units, buildings, player_side_state, view_x, view_y, max_width, max_height)
@@ -964,3 +964,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
