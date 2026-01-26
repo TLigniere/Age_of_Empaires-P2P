@@ -278,8 +278,7 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
     try:
         # Send unit positions
         for unit in units:
-            msg = f"UNIT_UPDATE|id:{id(unit)},type:{unit.unit_type},x:{unit.x},y:{unit.y},owner:{unit.owner}"
-            network.send_to_c("UNIT_STATE", msg)
+            network.send_to_c("UNIT_STATE", unit.to_network_message())
         
         # Send resource information
         if ai and ai.resources:
@@ -288,8 +287,7 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
         
         # Send building information
         for building in buildings:
-            bld_msg = f"type:{building.building_type},x:{building.x},y:{building.y},owner:{building.owner}"
-            network.send_to_c("BUILDING_STATE", bld_msg)
+            network.send_to_c("BUILDING_STATE", building.to_network_message())
     except Exception as e:
         Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
 

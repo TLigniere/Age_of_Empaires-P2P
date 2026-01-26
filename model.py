@@ -153,6 +153,11 @@ class Building:
 
 
 class Unit:
+    _id_counter = 0
+
+    def to_network_message(self):
+        return f"id:{self.id},type:{self.unit_type},x:{self.x},y:{self.y},owner:{self.owner}"
+    
     def __init__(self, unit_type, x, y, ai, owner='J1', network=None):
         self.network = network
         self.unit_type = unit_type  # Par exemple : 'Villager'
