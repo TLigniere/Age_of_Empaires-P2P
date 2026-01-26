@@ -1,5 +1,6 @@
 import time
 from ai_strategies.base_strategies import AIStrategy
+from view import Print_Display
 
 class StrategieNo1(AIStrategy):
     def execute(self, units, buildings, game_map, ai):
@@ -40,6 +41,7 @@ class StrategieNo1(AIStrategy):
                         farm_tile = game_map.grid[unit.y][unit.x]
                         if farm_tile.building and farm_tile.building.building_type == 'Farm':
                             unit.working_farm = farm_tile.building
+                            Print_Display(f"{unit.unit_type} commence à récolter de la nourriture à la ferme ({farm_tile.building.x}, {farm_tile.building.y}).")
                             unit.gather_food_from_farm()
                     elif nearest_resource[0] == 'Wood':
                         unit.gather_resource(game_map)

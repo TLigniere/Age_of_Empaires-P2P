@@ -39,7 +39,7 @@ def define_characters(tile,game_state):
     else:
         return ('.', 3)  # Tuile vide représentée par un point
     
-def define_boxes(stdscr, game_map):
+def define_boxes(stdscr):
     """Définit les différentes boîtes pour l'affichage."""
     global mapDisplay, printDisplay, connexionDisplay, infoDisplay
 
@@ -71,7 +71,7 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     try:
         mapDisplay.clear()
     except NameError:
-        define_boxes(stdscr, game_map)
+        define_boxes(stdscr)
 
     #unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
 
