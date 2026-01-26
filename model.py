@@ -148,6 +148,9 @@ class Building:
 
     def __repr__(self):
         return f"<{self.building_type} at ({self.x}, {self.y})>"
+    
+    def to_network_message(self):
+        return f"type:{self.building_type},x:{self.x},y:{self.y},owner:{self.owner}"
 
 
 
