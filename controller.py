@@ -473,14 +473,6 @@ def game_loop_curses(stdscr):
 
         network.poll()
 
-        if not network.connected:
-            game_state = GAME_PAUSED
-        if game_state == GAME_PAUSED:
-            stdscr.addstr(0, 0, "Connexion perdue - jeu en pause")
-            stdscr.refresh()
-            time.sleep(0.5)
-            continue
-
         current_time = time.time()
 
         # Gère les entrées utilisateur et affiche la carte en curses
@@ -578,7 +570,7 @@ def main_menu_curses_internal(stdscr):
     while True:
         stdscr.clear()
         stdscr.addstr(0, 0, "Menu Principal:")
-        
+
         for i, option in enumerate(options):
             if i == selected_option:
                 stdscr.addstr(i + 1, 0, option, curses.A_REVERSE)  # Option surlignée
