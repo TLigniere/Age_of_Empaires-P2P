@@ -9,7 +9,13 @@ __pycache__/
 
 # Game saves
 saves/
+*.pkl
+saves/*.pkl
 
+
+# venv
+venv/
+__pycache__/
 # Distribution / packaging
 .Python
 build/
