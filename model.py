@@ -197,10 +197,9 @@ class Unit:
             element.network_owner = element.owner  # Remet le network_owner à l'owner réel
             
 
-    def gather_food_from_farm(self, game_map):
+    def gather_food_from_farm(self):
         """Récolte la nourriture de la ferme en continu jusqu'à épuisement."""
-        tile = game_map.grid[self.y][self.x]
-        self.working_farm = tile.building
+
         if not self.working_farm:
             return
         
