@@ -454,6 +454,9 @@ def game_loop_curses(stdscr):
     global units, buildings, game_map, ai, game_state, NETWORK_PYTHON_PORT, NETWORK_MY_PORT
 
     network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
+    
+    # Passer la référence du network à la stratégie
+    current_strategy.set_network(network)
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -472,6 +475,13 @@ def game_loop_curses(stdscr):
     while True:
 
         network.poll()
+        # Traiter et afficher les messages reçus du réseau
+        messages = network.consume_messages()
+        for msg_type, payload in messages:
+            if msg_type == "PING":
+                Print_Display(f"[PING REÇU] {payload}", Color=2)
+            else:
+                Print_Display(f"[{msg_type}] {payload}", Color=3)
 
         current_time = time.time()
 
@@ -934,6 +944,11 @@ class NetworkClient:
             self.sock.sendto(msg.encode(), ("127.0.0.1", self.bridge_port))
         except OSError:
             pass
+
+    def send_ping(self, unit_id, x, y):
+        """Envoie un ping pour notifier un mouvement de villager"""
+        payload = f"unit_id:{unit_id},x:{x},y:{y}"
+        self.send("PING", payload)
 
     def consume_messages(self):
         msgs = self.inbox[:]

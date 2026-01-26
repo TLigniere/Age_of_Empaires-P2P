@@ -7,6 +7,13 @@ from model import Building, Unit, Tile, Map
 
 
 class AIStrategy:
+    def __init__(self):
+        self.network = None
+    
+    def set_network(self, network):
+        """Définit la référence au client réseau pour communiquer"""
+        self.network = network
+    
     def execute(self, units, buildings, game_map, ai):
         """
         Exécute la stratégie pour une mise à jour du jeu.
