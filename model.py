@@ -222,7 +222,7 @@ class Unit:
         # Occupation pendant la récolte
         if not self.working_farm.is_occupied():
             self.working_farm.occupy()
-            Print_Display(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
+            # Print_Display(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
 
         current_time = time.time()
         if not hasattr(self, 'action_end_time'):
@@ -236,7 +236,7 @@ class Unit:
             # Network message would be sent from controller level
 
             if self.resource_collected >= self.max_capacity:
-                Print_Display(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
+                # Print_Display(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
                 self.returning_to_town_center = True
                 self.working_farm.free()
                 self.working_farm = None

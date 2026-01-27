@@ -53,6 +53,7 @@ class GameState:
 units, buildings, game_map, ai = None, None, None, None
 game_state = GAME_PLAYING
 player_side_state = GameState()  # Track player side
+network = None  # Global network client
 
 NETWORK_PYTHON_PORT = 5001
 NETWORK_MY_PORT = 5000
@@ -282,17 +283,21 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
         # Send unit positions
         for unit in units:
             msg = f"UNIT_UPDATE|id:{id(unit)},type:{unit.unit_type},x:{unit.x},y:{unit.y},owner:{unit.owner}"
-            network.send_to_c("UNIT_STATE", msg)
+            network.send("UNIT_STATE", msg)
+            Print_Display(f"[DEBUG] Sent to C: {msg}")
         
         # Send resource information
         if ai and ai.resources:
             res_msg = f"wood:{ai.resources.get('Wood', 0)},gold:{ai.resources.get('Gold', 0)},food:{ai.resources.get('Food', 0)}"
-            network.send_to_c("RESOURCES", res_msg)
+            network.send("RESOURCES", res_msg)
+            Print_Display(f"[DEBUG] Sent to C: {res_msg}")
         
         # Send building information
         for building in buildings:
             bld_msg = f"type:{building.building_type},x:{building.x},y:{building.y},owner:{building.owner}"
-            network.send_to_c("BUILDING_STATE", bld_msg)
+            network.send("BUILDING_STATE", bld_msg)
+            Print_Display(f"[DEBUG] Sent to C: {bld_msg}")
+
     except Exception as e:
         Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
 
@@ -448,9 +453,15 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
-
-
+    global network
+    
+    # Initialiser le network client s'il n'existe pas
+    if network is None:
+        try:
+            network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=int(NETWORK_MY_PORT))
+        except Exception as e:
+            Print_Display(f"[ERROR] Échec de la connexion au processus C : {e}")
+            return
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -503,9 +514,15 @@ def game_loop_curses(stdscr):
 
 # Correction dans la fonction game_loop_graphics
 def game_loop_graphics():
-    global units, buildings, game_map, ai, game_state
+    global units, buildings, game_map, ai, game_state, network
 
-    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=int(NETWORK_MY_PORT))
+    # Réutiliser le network existant s'il existe, sinon en créer un nouveau
+    if network is None:
+        try:
+            network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=int(NETWORK_MY_PORT))
+        except Exception as e:
+            Print_Display(f"[ERROR] Échec de la connexion au processus C : {e}")
+            return
 
     # Initialiser pygame pour le mode graphique
     screen = initialize_graphics()
