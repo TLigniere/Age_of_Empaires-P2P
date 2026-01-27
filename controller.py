@@ -282,9 +282,7 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
     try:
         # Send unit positions
         for unit in units:
-            msg = f"UNIT_UPDATE|id:{id(unit)},type:{unit.unit_type},x:{unit.x},y:{unit.y},owner:{unit.owner}"
-            network.send("UNIT_STATE", msg)
-            Print_Display(f"[DEBUG] Sent to C: {msg}")
+            network.send_to_c("UNIT_STATE", unit.to_network_message())
         
         # Send resource information
         if ai and ai.resources:
@@ -294,10 +292,7 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
         
         # Send building information
         for building in buildings:
-            bld_msg = f"type:{building.building_type},x:{building.x},y:{building.y},owner:{building.owner}"
-            network.send("BUILDING_STATE", bld_msg)
-            Print_Display(f"[DEBUG] Sent to C: {bld_msg}")
-
+            network.send_to_c("BUILDING_STATE", building.to_network_message())
     except Exception as e:
         Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
 
@@ -891,7 +886,8 @@ def init_game():
     if loaded_units and loaded_buildings and loaded_map and loaded_ai:
         units, buildings, game_map, ai = loaded_units, loaded_buildings, loaded_map, loaded_ai
     else:
-        game_map = Map(120, 120)
+        seed = int(time.time())  # pour générer la même map des deux côtés
+        game_map = Map(120, 120, seed)
         game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
         game_map.generate_gold_clusters(num_clusters=4)
         town_center = Building('Town Center', 10, 10)
@@ -903,9 +899,10 @@ def init_game():
         units = [villager, villager2, villager3]
         buildings = [town_center]
         ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+        network.send(game_map.to_network_message())
         
         # Set the player AI in game state
-        player_side_state.set_player_ai(ai)
+        #player_side_state.set_player_ai(ai)
 
 
 
