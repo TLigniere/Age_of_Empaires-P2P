@@ -699,9 +699,12 @@ def start_new_game_curses(stdscr):
     NET_DEST = str(dest_port)
     PY_PORT = str(python_port)
     GAMEP2P_EXE = "./network/GameP2P.exe"
-    bridge_proc = subprocess.Popen([GAMEP2P_EXE, NET_ME, NET_DEST, PY_PORT])
-    time.sleep(0.5)
-    print(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {NET_ME} {NET_DEST} {PY_PORT}")
+    try:
+        bridge_proc = subprocess.Popen([GAMEP2P_EXE, NET_ME, NET_DEST, PY_PORT])
+        time.sleep(0.5)
+        print(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {NET_ME} {NET_DEST} {PY_PORT}")
+    except Exception as e:
+        Print_Display(f"[ERROR] Échec du lancement du processus réseau C : {e}")
 
     # Lancer la boucle de jeu avec curses
     curses.wrapper(game_loop_curses)
