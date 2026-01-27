@@ -284,19 +284,19 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
         for unit in units:
             msg = f"UNIT_UPDATE|id:{id(unit)},type:{unit.unit_type},x:{unit.x},y:{unit.y},owner:{unit.owner}"
             network.send("UNIT_STATE", msg)
-            Print_Display(f"[DEBUG] Sent to C: {msg}")
+            #Print_Display(f"[DEBUG] Sent to C: {msg}")
         
         # Send resource information
         if ai and ai.resources:
             res_msg = f"wood:{ai.resources.get('Wood', 0)},gold:{ai.resources.get('Gold', 0)},food:{ai.resources.get('Food', 0)}"
             network.send("RESOURCES", res_msg)
-            Print_Display(f"[DEBUG] Sent to C: {res_msg}")
+            #Print_Display(f"[DEBUG] Sent to C: {res_msg}")
         
         # Send building information
         for building in buildings:
             bld_msg = f"type:{building.building_type},x:{building.x},y:{building.y},owner:{building.owner}"
             network.send("BUILDING_STATE", bld_msg)
-            Print_Display(f"[DEBUG] Sent to C: {bld_msg}")
+            #Print_Display(f"[DEBUG] Sent to C: {bld_msg}")
 
     except Exception as e:
         Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
