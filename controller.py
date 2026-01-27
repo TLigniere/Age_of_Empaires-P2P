@@ -277,8 +277,6 @@ def update_game(units, buildings, game_map, ai, strategy, delay, last_update_tim
 
 def send_game_state_to_c(network, units, buildings, ai, player_side):
     """Send current game state to C process"""
-    if not network.is_connected():
-        return
     
     try:
         # Send unit positions
@@ -452,7 +450,7 @@ def escape_menu_graphics(screen):
 def game_loop_curses(stdscr):
     network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
 
-    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
+
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -472,7 +470,7 @@ def game_loop_curses(stdscr):
 
         network.poll()
 
-        messages = network.consume_message()
+        messages = network.consume_messages()
         for msg_type, payload in messages:
             if msg_type == "PING":
                 Print_Display("[PING] {payload}")
@@ -507,7 +505,7 @@ def game_loop_curses(stdscr):
 def game_loop_graphics():
     global units, buildings, game_map, ai, game_state
 
-    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, bridge_port=int(NETWORK_MY_PORT))
+    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=int(NETWORK_MY_PORT))
 
     # Initialiser pygame pour le mode graphique
     screen = initialize_graphics()
@@ -881,102 +879,68 @@ def init_game():
 
 
 class NetworkClient:
-    def __init__(self, python_port=5000, dest_port=6000, enable_network=False):
-        """
-        Initialize NetworkClient
-        Args:
-            python_port: Port to listen on
-            dest_port: Port to send to
-            enable_network: Whether to enable network communication (False for local testing)
-        """
-        self.enable_network = enable_network
-        self.connected = False  # Start as disconnected until C process connects
+    def __init__(self, python_port, my_port):
+        self.python_port = python_port
+        self.bridge_port = my_port
+        
+        self.connected = False
         self.inbox = []
         self.last_msg_time = time.time()
-        self.dest_port = dest_port
-        self.sock = None
-
-        # Only create socket if network is enabled
-        if self.enable_network:
-            try:
-                # Socket UDP
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                self.sock.bind(("127.0.0.1", python_port))
-                self.sock.setblocking(False)  # Non bloquant
-                self.connected = True
-                Print_Display("[INFO] Network client initialized and listening")
-            except OSError as e:
-                Print_Display(f"[WARNING] Failed to initialize network: {e}")
-                self.connected = False
-        else:
-            Print_Display("[INFO] Network is disabled - running in local mode")
-
-    def _read_from_c(self):
-        messages = []
         
-        # If network is disabled, return empty list
-        if not self.enable_network or not self.sock:
-            return messages
-            
-        try:
-            while True:
-                data, addr = self.sock.recvfrom(4096)
-                messages.append(data.decode())
-                self.last_msg_time = time.time()
-        except BlockingIOError:
-            pass
-        except (ConnectionResetError, OSError) as e:
-            # Connection closed by remote host or other socket error
-            self.connected = False
-            Print_Display(f"[WARNING] Network error: {e}")
-        return messages
+        # Socket UDP Non-Bloquant
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("127.0.0.1", self.python_port))
+        self.sock.setblocking(False)
+        
+        print(f"[NET] Client prêt sur port {self.python_port} -> Bridge {self.bridge_port}")
 
     def poll(self):
-        """Poll les messages et les met dans self.inbox"""
+        """Récupère les messages du C et vérifie le timeout"""
         try:
-            for raw_msg in self._read_from_c():
-                if "|" in raw_msg:
-                    msg_type, payload = raw_msg.split("|", 1)
-                else:
-                    msg_type = raw_msg
-                    payload = ""
+            while True: # On vide tout le buffer d'un coup
+                data, _ = self.sock.recvfrom(4096)
+                msg = data.decode().strip()
                 
-                if msg_type == "SYSTEM" and payload.startswith("DISCONNECTED"):
-                    self.connected = False
+                # Parsing simple
+                if "|" in msg:
+                    parts = msg.split("|", 1)
+                    self.inbox.append((parts[0], parts[1]))
                 else:
-                    # Stocke sous forme de tuple (type, payload)
-                    self.inbox.append((msg_type, payload))
-        except Exception as e:
-            Print_Display(f"[WARNING] Error in poll: {e}")
+                    self.inbox.append((msg, ""))
+                
+                # Le spam de données maintient la connexion en vie
+                self.last_msg_time = time.time()
+                if not self.connected:
+                    self.connected = True
+                    print("[NET] Connexion détectée !")
+                    
+        except BlockingIOError:
+            pass # Rien à lire
+        except ConnectionResetError:
+            pass
+
+        # Timeout : Si le "spam" s'arrête pendant 2s, c'est mort
+        if self.connected and (time.time() - self.last_msg_time > 2.0):
+            print("[NET] ⚠️  Connexion perdue (Plus de données)")
             self.connected = False
 
-        # Si plus de message depuis 2s → on considère la connexion perdue
-        if time.time() - self.last_msg_time > 2.0:
-            self.connected = False
-
-    def is_connected(self):
-        """Return True if network is disabled or connected"""
-        # If network is disabled, always return True (don't pause the game)
-        if not self.enable_network:
-            return True
-        return self.connected
-    
-    def send_to_c(self, msg_type, payload="", dest_port=6000):
-        """Send message to C process with error handling"""
-        
-        # If network is disabled, silently ignore
-        if not self.enable_network or not self.sock:
-            return
-            
+    def send(self, msg_type, payload=""):
+        """Envoie vers le C"""
+        msg = f"{msg_type}|{payload}" if payload else msg_type
         try:
-            message = f"{msg_type}|{payload}" if payload else msg_type
-            dest_addr = ("127.0.0.1", self.dest_port)
-            self.sock.sendto(message.encode(), dest_addr)
-        except (ConnectionResetError, OSError) as e:
-            self.connected = False
-            Print_Display(f"[WARNING] Failed to send to C: {e}")
-        except Exception as e:
-            Print_Display(f"[WARNING] Unexpected error sending to C: {e}")
+            self.sock.sendto(msg.encode(), ("127.0.0.1", self.bridge_port))
+        except OSError:
+            pass
+
+    def send_ping(self, unit_id, x, y):
+        """Envoie un ping pour notifier un mouvement de villager"""
+        payload = f"unit_id:{unit_id},x:{x},y:{y}"
+        self.send("PING", payload)
+
+    def consume_messages(self):
+        msgs = self.inbox[:]
+        self.inbox.clear()
+        return msgs
 
 
 def main():
