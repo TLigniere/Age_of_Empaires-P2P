@@ -52,11 +52,20 @@ def define_boxes(stdscr):
     
     max_clm=int(max_width/2-3)
     max_row=max_height-7
+
+    sizeMap = (max_height, int(max_width / 2))
+    sizeInfo = (int(max_height/4), int(max_width / 2))
+    sizeConnexion = (int(max_height/8), int(max_width / 2))
+    sizePrint = (int(max_height-sizeConnexion[0]-sizeInfo[0]), int(max_width / 2))
+
+    # Xdisplay =        curses.newwin(height            , width             , position_y                        , position_x )
     
-    mapDisplay = curses.newwin(max_height, int(max_width / 2), 0, 0)
-    infoDisplay =  curses.newwin(max_height - 20, int(max_width / 2), 5, int(max_width / 2))
-    connexionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
-    printDisplay = curses.newwin(15, int(max_width / 2), max_height - 15, int(max_width / 2))
+    mapDisplay =        curses.newwin(sizeMap[0]        , sizeMap[1]        , 0                                 , 0         )
+    infoDisplay =       curses.newwin(sizeInfo[0]       , sizeInfo[1]       , sizeConnexion[0]                  , sizeMap[1])
+    connexionDisplay =  curses.newwin(sizeConnexion[0]  , sizeConnexion[1]  , 0                                 , sizeMap[1])
+    printDisplay =      curses.newwin(sizePrint[0]      , sizePrint[1]      , sizeConnexion[0] + sizeInfo[0]    , sizeMap[1])
+
+    # Xdisplay = curses.newwin( height, width, position_y, position_x )
 
     max_row,max_height = mapDisplay.getmaxyx()
 
