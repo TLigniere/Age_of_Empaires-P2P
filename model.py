@@ -192,7 +192,8 @@ class Unit:
                     self.returning_to_town_center = True
                 tile.resource = None
             else:
-                Print_Display(f"{self.unit_type} ne peut pas récolter {element.id}, réseau occupé par un autre joueur.")
+                pass
+               #Print_Display(f"{self.unit_type} ne peut pas récolter {element.id}, réseau occupé par un autre joueur.")
 
             element.network_owner = element.owner  # Remet le network_owner à l'owner réel
             
@@ -205,7 +206,7 @@ class Unit:
         
         farm = self.working_farm
         if self.working_farm.is_empty():
-                Print_Display(f"Ferme à ({self.working_farm.x}, {self.working_farm.y}) est épuisée.")
+               #Print_Display(f"Ferme à ({self.working_farm.x}, {self.working_farm.y}) est épuisée.")
                 self.working_farm = None
                 return
             
@@ -222,7 +223,7 @@ class Unit:
         # Occupation pendant la récolte
         if not self.working_farm.is_occupied():
             self.working_farm.occupy()
-            # Print_Display(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
+           #Print_Display(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
 
         current_time = time.time()
         if not hasattr(self, 'action_end_time'):
@@ -236,7 +237,7 @@ class Unit:
             # Network message would be sent from controller level
 
             if self.resource_collected >= self.max_capacity:
-                # Print_Display(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
+               #Print_Display(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
                 self.returning_to_town_center = True
                 self.working_farm.free()
                 self.working_farm = None

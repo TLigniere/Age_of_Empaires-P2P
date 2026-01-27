@@ -53,10 +53,10 @@ def define_boxes(stdscr):
     max_clm=int(max_width/2-3)
     max_row=max_height-7
 
-    sizeMap = (max_height, int(max_width / 2))
-    sizeInfo = (int(max_height/4), int(max_width / 2))
-    sizeConnexion = (int(max_height/8), int(max_width / 2))
-    sizePrint = (int(max_height-sizeConnexion[0]-sizeInfo[0]), int(max_width / 2))
+    sizeMap =           (int(max_height)                                    , int(max_width / 2))
+    sizeInfo =          (int(max_height/4)                                  , int(max_width / 2))
+    sizeConnexion =     (int(max_height/8)                                  , int(max_width / 2))
+    sizePrint =         (int(max_height - sizeConnexion[0] - sizeInfo[0])   , int(max_width / 2))
 
     # Xdisplay =        curses.newwin(height            , width             , position_y                        , position_x )
     
