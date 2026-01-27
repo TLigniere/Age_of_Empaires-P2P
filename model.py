@@ -31,7 +31,7 @@ class Tile:
 
 
 class Map:    
-    def __init__(self, width, height, seed):
+    def __init__(self, width, height, seed = 4173):
         self.width = width
         self.height = height
         self.grid = [[Tile() for _ in range(width)] for _ in range(height)]  # Assume qu'une classe Tile est définie
