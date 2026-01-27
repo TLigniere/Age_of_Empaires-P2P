@@ -11,6 +11,7 @@ from view_graphics import handle_input_pygame, render_map, screen_width, screen_
 from game_utils import save_game_state, load_game_state
 import socket
 import time
+from datetime import datetime
 
 import select
 import json 
@@ -27,8 +28,119 @@ last_update_time = 0  # Initialiser last_update_time avant la boucle principale 
 
 
 
+# ========== EVENT LOGGING SYSTEM ==========
+class EventLogger:
+    """Centralized event logging for P2P synchronization"""
+    def __init__(self, player_side):
+        self.player_side = player_side
+        self.events = []
+    
+    def log_event(self, event_type, data):
+        """Log a game event with timestamp"""
+        timestamp = datetime.now().isoformat()
+        event = {
+            'type': event_type,
+            'player': self.player_side,
+            'timestamp': timestamp,
+            'data': data
+        }
+        self.events.append(event)
+        return event
+    
+    def log_unit_movement(self, unit_id, x, y):
+        return self.log_event('UNIT_MOVE', {'unit_id': unit_id, 'x': x, 'y': y})
+    
+    def log_building_construction(self, building_type, x, y):
+        return self.log_event('BUILDING_CONSTRUCT', {'type': building_type, 'x': x, 'y': y})
+    
+    def log_resource_gathering(self, resource_type, amount):
+        return self.log_event('RESOURCE_GATHER', {'resource': resource_type, 'amount': amount})
+    
+    def log_unit_creation(self, unit_type, x, y):
+        return self.log_event('UNIT_CREATE', {'type': unit_type, 'x': x, 'y': y})
+    
+    def log_attack(self, attacker_id, target_id):
+        return self.log_event('ATTACK', {'attacker': attacker_id, 'target': target_id})
+    
+    def get_events(self):
+        """Get all logged events"""
+        return self.events
+    
+    def clear_events(self):
+        """Clear logged events"""
+        self.events = []
+
+# ========== ENHANCED NETWORK CLIENT FOR P2P (via C process) ==========
+class P2PNetworkClient:
+    """P2P Network Client that routes events through C process"""
+    def __init__(self, network_client, player_side='J1'):
+        """
+        Initialize P2P client using existing C process connection
+        
+        Args:
+            network_client: Existing NetworkClient instance connected to C process
+            player_side: 'J1' or 'J2'
+        """
+        self.network_client = network_client
+        self.player_side = player_side
+        self.event_logger = EventLogger(player_side)
+        self.inbox = []
+        
+        Print_Display(f"[P2P] Client {player_side} configured to route through C process", Color=2)
+    
+    def poll(self):
+        """Poll for messages from C process"""
+        if not self.network_client:
+            return
+        
+        # Poll the underlying network client
+        self.network_client.poll()
+        
+        # Get messages from C process
+        messages = self.network_client.consume_messages()
+        
+        for msg_type, payload in messages:
+            # Check if this is an event from the opponent
+            if msg_type in ['UNIT_MOVE', 'BUILDING_CONSTRUCT', 'UNIT_CREATE', 'RESOURCE_GATHER', 'ATTACK']:
+                try:
+                    # Parse the event from C process
+                    event_data = json.loads(payload) if isinstance(payload, str) else payload
+                    
+                    # Only add if it's from the other player
+                    if event_data.get('player') != self.player_side:
+                        self.inbox.append(event_data)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+    
+    def send_event(self, event):
+        """Send an event through C process to opponent"""
+        if not self.network_client or not self.network_client.connected:
+            Print_Display(f"[P2P] ⚠️  Not connected to C process", Color=1)
+            return
+        
+        try:
+            msg = json.dumps(event)
+            # Send to C process as JSON
+            event_type = event.get('type', 'EVENT')
+            self.network_client.send(event_type, msg)
+        except Exception as e:
+            Print_Display(f"[P2P] Erreur d'envoi via C: {e}", Color=1)
+    
+    def consume_events(self):
+        """Get all received events from opponent"""
+        events = self.inbox[:]
+        self.inbox.clear()
+        return events
+    
+    def log_and_send(self, event_type, data):
+        """Log an event locally and send through C process"""
+        event = self.event_logger.log_event(event_type, data)
+        self.send_event(event)
+        return event
+
 
 # Constants
+
 SAVE_DIR = "saves"
 DEFAULT_SAVE = os.path.join(SAVE_DIR, "default_game.pkl")
 GAME_PLAYING = "PLAYING"
@@ -38,6 +150,46 @@ GAME_PAUSED = "PAUSED"
 # Set to True when you have the C process running
 # Set to False for local testing without C process
 ENABLE_NETWORK = False
+ENABLE_P2P = False  # Set to True for P2P multiplayer mode
+
+# P2P Configuration Variables
+P2P_MY_PORT = 5000
+P2P_OPPONENT_PORT = 5001
+P2P_OPPONENT_HOST = '127.0.0.1'
+P2P_PLAYER_SIDE = 'J1'  # Will be overridden by command line args
+
+# Legacy Network Configuration Variables
+NETWORK_PYTHON_PORT = 5001
+NETWORK_MY_PORT = 5000
+NETWORK_DEST_PORT = 6000
+
+# Parse command line arguments for P2P mode
+def parse_p2p_arguments():
+    """Parse command line arguments for P2P multiplayer"""
+    global ENABLE_P2P, P2P_PLAYER_SIDE, P2P_MY_PORT, P2P_OPPONENT_PORT
+    
+    for i, arg in enumerate(sys.argv[1:]):
+        if arg == '--p2p':
+            ENABLE_P2P = True
+        elif arg == '--player' and i + 1 < len(sys.argv):
+            player = sys.argv[i + 2]
+            if player in ['J1', 'J2']:
+                P2P_PLAYER_SIDE = player
+        elif arg == '--my-port' and i + 1 < len(sys.argv):
+            try:
+                P2P_MY_PORT = int(sys.argv[i + 2])
+            except ValueError:
+                pass
+        elif arg == '--opponent-port' and i + 1 < len(sys.argv):
+            try:
+                P2P_OPPONENT_PORT = int(sys.argv[i + 2])
+            except ValueError:
+                pass
+        elif arg == '--opponent-host' and i + 1 < len(sys.argv):
+            P2P_OPPONENT_HOST = sys.argv[i + 2]
+
+# Parse arguments at startup
+parse_p2p_arguments()
 # ==========================================
 
 # Simple GameState object to track player_side and AI resources
@@ -288,8 +440,9 @@ def update_game(units, buildings, game_map, ai, enemy_units, enemy_buildings, en
     if current_time - last_update_time > delay:
         # Update player 1 AI
         strategy.execute(units, buildings, game_map, ai)
-        # Update enemy AI (using same strategy or different one)
-        strategy.execute(enemy_units, enemy_buildings, game_map, enemy_ai)
+        # Update enemy AI only if it exists (not in P2P mode where enemy is real player)
+        if enemy_ai is not None:
+            strategy.execute(enemy_units, enemy_buildings, game_map, enemy_ai)
         return current_time
     return last_update_time
 
@@ -461,12 +614,20 @@ def escape_menu_graphics(screen):
 def game_loop_curses(stdscr):
     global units, buildings, game_map, ai, game_state, NETWORK_PYTHON_PORT, NETWORK_MY_PORT, enemy_units, enemy_buildings, enemy_ai
 
-    # Initialize network only if enabled
+    # Initialize network (C process) - required for both ENABLE_NETWORK and ENABLE_P2P
     network = None
-    if ENABLE_NETWORK:
+    if ENABLE_NETWORK or ENABLE_P2P:
         network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
         # Passer la référence du network à la stratégie
-        current_strategy.set_network(network)
+        if ENABLE_NETWORK:
+            current_strategy.set_network(network)
+    
+    # Initialize P2P network if enabled (using C process)
+    p2p_network = None
+    if ENABLE_P2P:
+        if not network:
+            Print_Display("[P2P] Erreur: C process non connecté. Activez ENABLE_NETWORK", Color=1)
+        p2p_network = P2PNetworkClient(network_client=network, player_side=P2P_PLAYER_SIDE)
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -482,6 +643,13 @@ def game_loop_curses(stdscr):
     init_colors()
 
     while True:
+
+        # Handle P2P network if enabled
+        if ENABLE_P2P and p2p_network:
+            p2p_network.poll()
+            received_events = p2p_network.consume_events()
+            for event in received_events:
+                Print_Display(f"[{event.get('player')}] {event.get('type')}: {event.get('data')}", Color=3)
 
         # Handle network polling if enabled
         if ENABLE_NETWORK and network:
@@ -519,8 +687,18 @@ def game_loop_curses(stdscr):
 def game_loop_graphics(player_side=None):
     global units, buildings, game_map, ai, game_state, enemy_units, enemy_buildings, enemy_ai, player_side_state
 
-    # Initialiser la connexion réseau
-    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT) if ENABLE_NETWORK else None
+    # Initialize network connection (C process)
+    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT) if ENABLE_NETWORK or ENABLE_P2P else None
+    
+    # Initialize P2P network if enabled (using C process)
+    p2p_network = None
+    received_events = []
+    if ENABLE_P2P:
+        if not network:
+            Print_Display("[P2P] Erreur: C process non connecté. Activez ENABLE_NETWORK", Color=1)
+        p2p_network = P2PNetworkClient(network_client=network, player_side=P2P_PLAYER_SIDE)
+        player_side_state.player_side = P2P_PLAYER_SIDE
+        player_side = P2P_PLAYER_SIDE
     
     # Passer la référence du network à la stratégie
     if ENABLE_NETWORK and network:
@@ -550,6 +728,13 @@ def game_loop_graphics(player_side=None):
 
     while running:
         current_time = time.time()
+
+        # Handle P2P network if enabled
+        if ENABLE_P2P and p2p_network:
+            p2p_network.poll()
+            received_events = p2p_network.consume_events()
+            for event in received_events:
+                Print_Display(f"[{event.get('player')}] {event.get('type')}: {event.get('data')}", Color=3)
 
         # Handle network if enabled
         if ENABLE_NETWORK and network:
@@ -1039,14 +1224,96 @@ class NetworkClient:
 
 
 def main():
-    # Ne pas initialiser pygame à moins que le mode graphique soit spécifié
-    if 'graphics' in sys.argv:
-        main_menu_graphics()
+    """Main entry point - handles normal or P2P mode"""
+    # If P2P mode is enabled, skip menu and start game directly
+    if ENABLE_P2P:
+        Print_Display(f"[P2P] Démarrage en mode P2P - Joueur: {P2P_PLAYER_SIDE}", Color=2)
+        Print_Display(f"[P2P] Port local: {P2P_MY_PORT}, Opponent: {P2P_OPPONENT_HOST}:{P2P_OPPONENT_PORT}", Color=2)
+        
+        # Initialize game for P2P
+        init_p2p_game()
+        
+        # Run appropriate game loop
+        if 'graphics' in sys.argv:
+            game_loop_graphics(P2P_PLAYER_SIDE)
+        else:
+            curses.wrapper(game_loop_curses)
     else:
-        main_menu_curses()
+        # Normal mode - show menu
+        if 'graphics' in sys.argv:
+            main_menu_graphics()
+        else:
+            main_menu_curses()
+
+def init_p2p_game():
+    """Initialize a game for P2P multiplayer mode"""
+    global units, buildings, game_map, ai, player_side_state, enemy_units, enemy_buildings, enemy_ai
+    
+    # Set player side from P2P config
+    player_side_state.player_side = P2P_PLAYER_SIDE
+    
+    # Create game map
+    game_map = Map(120, 120)
+    game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
+    game_map.generate_gold_clusters(num_clusters=4)
+    
+    if P2P_PLAYER_SIDE == 'J1':
+        # Setup Player 1 (J1)
+        town_center = Building('Town Center', 10, 10, owner='J1')
+        game_map.place_building(town_center, 10, 10)
+        
+        villager1 = Unit('Villager', 9, 9, None, owner='J1')
+        villager2 = Unit('Villager', 12, 9, None, owner='J1')
+        villager3 = Unit('Villager', 9, 12, None, owner='J1')
+        
+        units = [villager1, villager2, villager3]
+        buildings = [town_center]
+        
+        # Setup Enemy (J2) - will be controlled by opponent
+        enemy_town_center = Building('Town Center', 110, 110, owner='J2')
+        game_map.place_building(enemy_town_center, 110, 110)
+        
+        enemy_villager1 = Unit('Villager', 109, 109, None, owner='J2')
+        enemy_villager2 = Unit('Villager', 112, 109, None, owner='J2')
+        enemy_villager3 = Unit('Villager', 109, 112, None, owner='J2')
+        
+        enemy_units = [enemy_villager1, enemy_villager2, enemy_villager3]
+        enemy_buildings = [enemy_town_center]
+        
+    else:  # J2
+        # Setup Player 2 (J2)
+        town_center = Building('Town Center', 110, 110, owner='J2')
+        game_map.place_building(town_center, 110, 110)
+        
+        villager1 = Unit('Villager', 109, 109, None, owner='J2')
+        villager2 = Unit('Villager', 112, 109, None, owner='J2')
+        villager3 = Unit('Villager', 109, 112, None, owner='J2')
+        
+        units = [villager1, villager2, villager3]
+        buildings = [town_center]
+        
+        # Setup Enemy (J1) - will be controlled by opponent
+        enemy_town_center = Building('Town Center', 10, 10, owner='J1')
+        game_map.place_building(enemy_town_center, 10, 10)
+        
+        enemy_villager1 = Unit('Villager', 9, 9, None, owner='J1')
+        enemy_villager2 = Unit('Villager', 12, 9, None, owner='J1')
+        enemy_villager3 = Unit('Villager', 9, 12, None, owner='J1')
+        
+        enemy_units = [enemy_villager1, enemy_villager2, enemy_villager3]
+        enemy_buildings = [enemy_town_center]
+    
+    # Create AI for player
+    ai = AI(buildings, units)
+    for unit in units:
+        unit.ai = ai
+    
+    player_side_state.set_player_ai(ai)
+    
+    # Don't create AI for enemy in P2P mode - they're controlled by real player
+    enemy_ai = None
+    
+    Print_Display("[P2P] Jeu initialisé - en attente du début", Color=2)
 
 if __name__ == "__main__":
     main()
-
-
-
