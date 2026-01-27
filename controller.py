@@ -5,7 +5,7 @@ import pygame
 import subprocess
 import sys
 import signal
-from model import Map, Unit, Building
+from model import Map, Unit, Building, Joueur
 from view import display_with_curses, handle_input, init_colors, Print_Display
 from view_graphics import handle_input_pygame, render_map, screen_width, screen_height, TILE_WIDTH, TILE_HEIGHT, initialize_graphics
 from game_utils import save_game_state, load_game_state
@@ -490,6 +490,15 @@ def game_loop_curses(stdscr):
 
         current_time = time.time()
 
+        # Accéder au côté du joueur
+        Joueur = player_side_state.player_side  # Retourne 'J1' ou 'J2'
+
+        # Utiliser pour des conditions
+        if player_side_state.player_side == 'J1':
+            print(Joueur)
+        else:
+            print(Joueur)
+
         # Gère les entrées utilisateur et affiche la carte en curses
         view_x, view_y = handle_input(stdscr, view_x, view_y, max_height, max_width, game_map)
         display_with_curses(stdscr, game_map, units, player_side_state, ai, view_x, view_y)
@@ -688,6 +697,10 @@ def start_new_game_curses(stdscr):
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_curses(stdscr)
     
+    # Synchroniser la variable globale Joueur
+    import model as model_module
+    model_module.Joueur = player_side_state.player_side
+    
     game_map = Map(map_size, map_size)
     game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=gold_clusters)
@@ -846,6 +859,10 @@ def start_new_game_graphics(screen, font):
     
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_graphics(screen, font)
+    
+    # Synchroniser la variable globale Joueur
+    import model as model_module
+    model_module.Joueur = player_side_state.player_side
     
     game_map = Map(120, 120)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
