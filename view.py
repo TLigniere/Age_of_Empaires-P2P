@@ -87,7 +87,7 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     unit_positions = {}
     for unit in units:
         # Détermine la couleur selon le propriétaire
-        if unit.owner == game_state.player_side:
+        if unit.owner == "J1":
             color_pair = 10  # Bleu pour J1
         else:
             color_pair = 11  # Rouge pour J2
