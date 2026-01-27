@@ -685,6 +685,8 @@ def start_new_game_curses(stdscr):
 
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_curses(stdscr)
+
+    seed = int(time.time())
     
     # Synchroniser la variable globale Joueur
     import model as model_module
@@ -853,7 +855,8 @@ def start_new_game_graphics(screen, font):
     import model as model_module
     model_module.Joueur = player_side_state.player_side
     
-    game_map = Map(120, 120)
+    seed = int(time.time())
+    game_map = Map(map_size, map_size, seed)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
     town_center = Building('Town Center', 10, 10)
@@ -868,6 +871,13 @@ def start_new_game_graphics(screen, font):
     
     # Set the player AI in game state
     player_side_state.set_player_ai(ai)
+
+    # Envoi du seed et des infos map au réseau si nécessaire
+    try:
+        import network
+        network.send(game_map.to_network_message())
+    except Exception:
+        pass  # Le réseau peut ne pas être initialisé
 
     # Lancer la boucle de jeu graphique
     game_loop_graphics()
