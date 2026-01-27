@@ -49,6 +49,18 @@ class GameState:
     def set_player_ai(self, ai_obj):
         self.player_ai = ai_obj
 
+# Global game variables - Player 1
+player_side_state = GameState()
+units = []
+buildings = []
+game_map = None
+ai = None
+
+# Global game variables - Player 2 (Enemy)
+enemy_units = []
+enemy_buildings = []
+enemy_ai = None
+
 # Global Variables
 units, buildings, game_map, ai = None, None, None, None
 game_state = GAME_PLAYING
@@ -151,7 +163,7 @@ def load_existing_game_graphics(screen, font):
                     # Charger la partie sélectionnée
                     load_existing_game(os.path.join(SAVE_DIR, saves[selected_option]))
                     # Après chargement, lancez directement la boucle de jeu graphique
-                    game_loop_graphics()
+                    game_loop_graphics(player_side_state.player_side)
                     return  # Quitte la fonction après avoir lancé la boucle de jeu
 
 def clear_input_buffer(stdscr):
@@ -241,7 +253,7 @@ def switch_mode(new_mode):
     save_game_state(units, buildings, game_map, ai)
     if new_mode == 'graphics':
         reset_curses()
-        game_loop_graphics()
+        game_loop_graphics(player_side_state.player_side)
     elif new_mode == 'terminal':
         reset_graphics()
         curses.wrapper(game_loop_curses)
@@ -253,15 +265,18 @@ def switch_mode(new_mode):
 #-------------------------------------------------------------------------------------
 #------Boucle de MAJ des events et des IA
 #-------------------------------------------------------------------------------------
-def update_game(units, buildings, game_map, ai, strategy, delay, last_update_time):
+def update_game(units, buildings, game_map, ai, enemy_units, enemy_buildings, enemy_ai, strategy, delay, last_update_time):
     """
     Met à jour le jeu en utilisant la stratégie spécifiée pour les actions IA.
 
     Args:
-        units (list): Liste des unités du jeu.
-        buildings (list): Liste des bâtiments du jeu.
+        units (list): Liste des unités du joueur.
+        buildings (list): Liste des bâtiments du joueur.
         game_map (Map): Carte du jeu.
-        ai (AI): L'objet représentant l'IA du ai.
+        ai (AI): L'objet représentant l'IA du joueur.
+        enemy_units (list): Liste des unités de l'ennemi.
+        enemy_buildings (list): Liste des bâtiments de l'ennemi.
+        enemy_ai (AI): L'IA de l'ennemi.
         strategy (AIStrategy): Stratégie actuellement utilisée pour l'IA.
         delay (float): Délai minimum entre les mises à jour.
         last_update_time (float): Temps de la dernière mise à jour.
@@ -271,8 +286,10 @@ def update_game(units, buildings, game_map, ai, strategy, delay, last_update_tim
     """
     current_time = time.time()
     if current_time - last_update_time > delay:
-        # Utiliser la stratégie actuelle pour gérer les actions de l'IA
+        # Update player 1 AI
         strategy.execute(units, buildings, game_map, ai)
+        # Update enemy AI (using same strategy or different one)
+        strategy.execute(enemy_units, enemy_buildings, game_map, enemy_ai)
         return current_time
     return last_update_time
 
@@ -299,15 +316,6 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
     except Exception as e:
         Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
 
-def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0):
-    """Check if it's time to autosave (every save_interval seconds)"""
-    try:
-        if current_time - last_save_time > save_interval:
-            save_game_state(units, buildings, game_map, ai, DEFAULT_SAVE)
-            return current_time
-    except Exception as e:
-        Print_Display(f"[WARNING] Autosave failed: {e}")
-    return last_save_time
 
 def escape_menu_curses(stdscr):
     options = ["1. Sauvegarder", "2. Charger", "3. Reprendre", "4. Retour au Menu Principal", "5. Quitter"]
@@ -451,12 +459,14 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    global units, buildings, game_map, ai, game_state, NETWORK_PYTHON_PORT, NETWORK_MY_PORT
+    global units, buildings, game_map, ai, game_state, NETWORK_PYTHON_PORT, NETWORK_MY_PORT, enemy_units, enemy_buildings, enemy_ai
 
-    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
-    
-    # Passer la référence du network à la stratégie
-    current_strategy.set_network(network)
+    # Initialize network only if enabled
+    network = None
+    if ENABLE_NETWORK:
+        network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
+        # Passer la référence du network à la stratégie
+        current_strategy.set_network(network)
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -467,89 +477,104 @@ def game_loop_curses(stdscr):
     stdscr.timeout(100)
 
     last_update_time = time.time()
-    last_save_time = time.time()
     last_network_send_time = time.time()
 
     init_colors()
 
     while True:
 
-        network.poll()
-        # Traiter et afficher les messages reçus du réseau
-        messages = network.consume_messages()
-        for msg_type, payload in messages:
-            if msg_type == "PING":
-                Print_Display(f"[PING REÇU] {payload}", Color=2)
-            else:
-                Print_Display(f"[{msg_type}] {payload}", Color=3)
+        # Handle network polling if enabled
+        if ENABLE_NETWORK and network:
+            network.poll()
+            # Traiter et afficher les messages reçus du réseau
+            messages = network.consume_messages()
+            for msg_type, payload in messages:
+                if msg_type == "PING":
+                    Print_Display(f"[PING REÇU] {payload}", Color=2)
+                else:
+                    Print_Display(f"[{msg_type}] {payload}", Color=3)
 
         current_time = time.time()
 
         # Gère les entrées utilisateur et affiche la carte en curses
         view_x, view_y = handle_input(stdscr, view_x, view_y, max_height, max_width, game_map)
         display_with_curses(stdscr, game_map, units, player_side_state, ai, view_x, view_y)
-        last_update_time = update_game(units, buildings, game_map, ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
+        # Update both player 1 and enemy AI
+        last_update_time = update_game(units, buildings, game_map, ai, enemy_units, enemy_buildings, enemy_ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
         
         # Send periodic updates to C process (every 0.5 seconds)
         current_time = time.time()
-        if current_time - last_network_send_time > 0.5:
+        if ENABLE_NETWORK and network and current_time - last_network_send_time > 0.5:
             send_game_state_to_c(network, units, buildings, ai, player_side_state.player_side)
             last_network_send_time = current_time
-        
-        # Auto-save game state (every 5 seconds)
-        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
         key = stdscr.getch()
         if key == curses.KEY_F12:
-            reset_curses()
-            game_loop_graphics()
+            # ← REMOVED nested call - just exit loop and return
             break
         elif key == 27:  # Touche Échap pour ouvrir le menu
             escape_menu_curses(stdscr)
 
 # Correction dans la fonction game_loop_graphics
-def game_loop_graphics():
-    global units, buildings, game_map, ai, game_state
+def game_loop_graphics(player_side=None):
+    global units, buildings, game_map, ai, game_state, enemy_units, enemy_buildings, enemy_ai, player_side_state
 
-    # network = NetworkClient(python_port=PY_PORT, bridge_port=int(NET_ME))
+    # Initialiser la connexion réseau
+    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT) if ENABLE_NETWORK else None
+    
+    # Passer la référence du network à la stratégie
+    if ENABLE_NETWORK and network:
+        current_strategy.set_network(network)
 
     # Initialiser pygame pour le mode graphique
     screen = initialize_graphics()
 
     running = True
     clock = pygame.time.Clock()
-    view_x, view_y = 0, 0
+    
+    # Set initial camera position based on player side
+    if player_side == 'J1':
+        # Focus on Player 1's town center at (10, 10)
+        view_x, view_y = 10, 10
+    elif player_side == 'J2':
+        # Focus on Player 2's town center at (110, 110)
+        view_x, view_y = 110, 110
+    else:
+        # Default to top-left if no player side specified
+        view_x, view_y = 0, 0
+    
     max_width = screen_width // TILE_WIDTH
     max_height = screen_height // TILE_HEIGHT
     last_update_time = time.time()
-    last_save_time = time.time()
     last_network_send_time = time.time()
 
     while running:
         current_time = time.time()
 
-        network.poll()
-        if not network.connected:
-            Print_Display("Connexion perdue")
-            continue
+        # Handle network if enabled
+        if ENABLE_NETWORK and network:
+            network.poll()
+            # Traiter et afficher les messages reçus du réseau
+            messages = network.consume_messages()
+            for msg_type, payload in messages:
+                if msg_type == "PING":
+                    Print_Display(f"[PING REÇU] {payload}", Color=2)
+                else:
+                    Print_Display(f"[{msg_type}] {payload}", Color=3)
         
         # Gère les entrées utilisateur pour le scrolling de la carte
         view_x, view_y = handle_input_pygame(view_x, view_y, max_width, max_height, game_map)
         
-        # Mise à jour du jeu à intervalles réguliers
-        last_update_time = update_game(units, buildings, game_map, ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
+        # Mise à jour du jeu à intervalles réguliers - update both players
+        last_update_time = update_game(units, buildings, game_map, ai, enemy_units, enemy_buildings, enemy_ai, strategy=current_strategy, delay=0.01, last_update_time=last_update_time)
         
         # Send periodic updates to C process (every 0.5 seconds)
-        if current_time - last_network_send_time > 0.5:
+        if ENABLE_NETWORK and network and current_time - last_network_send_time > 0.5:
             send_game_state_to_c(network, units, buildings, ai, player_side_state.player_side)
             last_network_send_time = current_time
-        
-        # Auto-save game state (every 5 seconds)
-        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
-        # Rendu de la carte et des unités
-        render_map(screen, game_map, units, buildings, player_side_state, view_x, view_y, max_width, max_height)
-
+        # Rendu de la carte et des unités - render both players' entities
+        render_map(screen, game_map, units + enemy_units, buildings + enemy_buildings, player_side_state, view_x, view_y, max_width, max_height)
 
         # Gérer les événements Pygame (fermeture de fenêtre, bascule de mode, menu)
         for event in pygame.event.get():
@@ -557,9 +582,8 @@ def game_loop_graphics():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F12:
-                    pygame.quit()
-                    curses.wrapper(game_loop_curses)
-                    return
+                    # ← FIXED: Just exit loop, don't call curses.wrapper again
+                    running = False
                 elif event.key == pygame.K_ESCAPE:
                     escape_menu_graphics(screen)
 
@@ -608,75 +632,18 @@ def main_menu_curses_internal(stdscr):
                 sys.exit(0)
 
 def start_new_game_curses(stdscr):
-    stdscr.clear()
-    stdscr.addstr(0, 0, "Réglage de la nouvelle partie:")
-
-    # Options configurables
-    input_fields = [
-        ("Taille de la carte (par défaut 120x120): ", "120"),
-        ("Nombre de clusters de bois (par défaut 10): ", "10"),
-        ("Nombre de clusters d'or (par défaut 4): ", "4"),
-        ("Vitesse du jeu (par défaut 1.0): ", "1.0"),
-        ("Port réseau (par défaut 5000): ", "5000"),
-        ("Port pyhton (par défaut 5001): ", "5001"),
-        ("Port distant (par défaut 6000): ", "6000")
-    ]
-    input_values = []
-
-    curses.echo()
-    for idx, (prompt, default) in enumerate(input_fields):
-        stdscr.addstr(idx + 1, 0, prompt)
-        stdscr.addstr(idx + 1, len(prompt), default)  # Affiche la valeur par défaut
-        stdscr.move(idx + 1, len(prompt))  # Place le curseur à la bonne position
-
-        value = ""
-        while True:
-            key = stdscr.getch()
-
-            if key == ord('\n'):  # Touche Entrée
-                if value.strip() == "":
-                    value = default  # Si aucune entrée, utilise la valeur par défaut
-                break
-            elif key in [curses.KEY_BACKSPACE, 127]:  # Touche Backspace
-                value = value[:-1]
-                stdscr.addstr(idx + 1, len(prompt), " " * (len(value) + 10))  # Efface la ligne précédente
-                stdscr.addstr(idx + 1, len(prompt), value)
-                stdscr.move(idx + 1, len(prompt) + len(value))
-            elif 32 <= key <= 126:  # Caractères imprimables uniquement
-                value += chr(key)
-                stdscr.addstr(idx + 1, len(prompt), value)
-                stdscr.move(idx + 1, len(prompt) + len(value))
-
-        input_values.append(value)
-
-    # Récupération des valeurs
-    try:
-        map_size = int(input_values[0])
-        wood_clusters = int(input_values[1])
-        gold_clusters = int(input_values[2])
-        speed = float(input_values[3])
-        my_port = int(input_values[4])
-        python_port = int(input_values[5])
-        dest_port = int(input_values[6])
-    except ValueError:
-        stdscr.addstr(len(input_fields) + 2, 0, "Erreur : Entrée invalide, utilisation des valeurs par défaut.")
-        stdscr.refresh()
-        time.sleep(2)
-        map_size = 120
-        wood_clusters = 10
-        gold_clusters = 4
-        speed = 1.0
-        my_port = 5000
-        python_port = 5001
-        dest_port = 6000
+    """Démarre une nouvelle partie avec les paramètres par défaut"""
+    # Utiliser les valeurs par défaut
+    map_size = 120
+    wood_clusters = 10
+    gold_clusters = 4
+    speed = 1.0
+    my_port = NETWORK_MY_PORT
+    python_port = NETWORK_PYTHON_PORT
+    dest_port = NETWORK_DEST_PORT
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai, player_side_state, NETWORK_PYTHON_PORT, NETWORK_MY_PORT, NETWORK_DEST_PORT
-    
-    # Assigner les ports aux variables globales
-    NETWORK_MY_PORT = my_port
-    NETWORK_DEST_PORT = dest_port
-    NETWORK_PYTHON_PORT = python_port
+    global units, buildings, game_map, ai, player_side_state, enemy_units, enemy_buildings, enemy_ai
     
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_curses(stdscr)
@@ -684,17 +651,19 @@ def start_new_game_curses(stdscr):
     game_map = Map(map_size, map_size)
     game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=gold_clusters)
-    town_center = Building('Town Center', 10, 10)
-    game_map.place_building(town_center, 10, 10)
     
-    # Création des unités avant l'IA
-    villager1 = Unit('Villager', 9, 9, None)  # Créez l'unité sans AI pour l'instant
-    villager2 = Unit('Villager', 12, 9, None)
-    villager3 = Unit('Villager', 9, 12, None)
-    units = [villager1, villager2, villager3]
-    buildings = [town_center]
+    # ===== PLAYER 1 (Human) =====
+    town_center_p1 = Building('Town Center', 10, 10, owner='J1')
+    game_map.place_building(town_center_p1, 10, 10)
+    
+    # Création des unités du joueur avant l'IA
+    villager1_p1 = Unit('Villager', 9, 9, None, owner='J1')
+    villager2_p1 = Unit('Villager', 12, 9, None, owner='J1')
+    villager3_p1 = Unit('Villager', 9, 12, None, owner='J1')
+    units = [villager1_p1, villager2_p1, villager3_p1]
+    buildings = [town_center_p1]
 
-    # Créez l'instance de l'AI après avoir créé les unités
+    # Créez l'instance de l'AI pour le joueur après avoir créé les unités
     ai = AI(buildings, units)
 
     # Mettre à jour les unités avec l'instance correcte de l'IA
@@ -703,18 +672,87 @@ def start_new_game_curses(stdscr):
     
     # Set the player AI in game state
     player_side_state.set_player_ai(ai)
+    
+    # ===== PLAYER 2 (Enemy/AI) =====
+    # Place enemy town center on the opposite side of the map
+    town_center_p2 = Building('Town Center', map_size - 10, map_size - 10, owner='J2')
+    game_map.place_building(town_center_p2, map_size - 10, map_size - 10)
+    
+    # Create enemy units
+    villager1_p2 = Unit('Villager', map_size - 11, map_size - 11, None, owner='J2')
+    villager2_p2 = Unit('Villager', map_size - 8, map_size - 11, None, owner='J2')
+    villager3_p2 = Unit('Villager', map_size - 11, map_size - 8, None, owner='J2')
+    enemy_units = [villager1_p2, villager2_p2, villager3_p2]
+    enemy_buildings = [town_center_p2]
+    
+    # Create enemy AI
+    enemy_ai = AI(enemy_buildings, enemy_units)
+    
+    # Update enemy units with enemy AI
+    for unit in enemy_units:
+        unit.ai = enemy_ai
 
-    # Initialiser la communication réseau
-    NET_ME = str(my_port)
-    NET_DEST = str(dest_port)
-    PY_PORT = str(python_port)
-    GAMEP2P_EXE = "./network/GameP2P.exe"
-    bridge_proc = subprocess.Popen([GAMEP2P_EXE, NET_ME, NET_DEST, PY_PORT])
-    time.sleep(0.5)
-    print(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {NET_ME} {NET_DEST} {PY_PORT}")
+    Print_Display("[INFO] Nouvelle partie créée avec succès")
+    time.sleep(1)
+    
+    # Launch network subprocess if enabled (optional for local testing)
+    if ENABLE_NETWORK:
+        PY_PORT = str(python_port)
+        GAMEP2P_EXE = "./network/GameP2P.exe"
+        try:
+            bridge_proc = subprocess.Popen([GAMEP2P_EXE, str(my_port), str(dest_port), PY_PORT])
+            time.sleep(0.5)
+            print(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {my_port} {dest_port} {PY_PORT}")
+        except Exception as e:
+            Print_Display(f"[WARNING] Impossible de lancer le réseau: {e}")
 
-    # Lancer la boucle de jeu avec curses
-    curses.wrapper(game_loop_curses)
+    # Lancer la boucle de jeu avec gestion du basculement terminal/graphique
+    game_loop_with_mode_switching()
+
+
+def game_loop_with_mode_switching():
+    """
+    Manages the game loop with proper view switching between terminal and graphics modes.
+    Uses a single curses session that persists across mode switches.
+    """
+    global units, buildings, game_map, ai, player_side_state, enemy_units, enemy_buildings, enemy_ai
+    
+    # Initialize curses once for the entire session
+    stdscr = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    stdscr.keypad(True)
+    
+    try:
+        current_mode = 'terminal'  # Start in terminal mode
+        
+        while True:
+            if current_mode == 'terminal':
+                # Run terminal mode with existing curses session
+                try:
+                    game_loop_curses(stdscr)
+                    # After terminal loop exits, switch to graphics if F12 was pressed
+                    current_mode = 'graphics'
+                except Exception as e:
+                    Print_Display(f"[ERROR] Terminal mode error: {e}", Color=1)
+                    break
+            elif current_mode == 'graphics':
+                # Run graphics mode (temporarily leaves curses)
+                try:
+                    game_loop_graphics(player_side_state.player_side)
+                    # After graphics loop exits, switch back to terminal
+                    current_mode = 'terminal'
+                except Exception as e:
+                    Print_Display(f"[ERROR] Graphics mode error: {e}", Color=1)
+                    break
+            else:
+                break
+    finally:
+        # Clean up curses on exit
+        curses.nocbreak()
+        stdscr.keypad(False)
+        curses.echo()
+        curses.endwin()
 
 
 def main_menu_graphics():
@@ -749,7 +787,7 @@ def main_menu_graphics():
                         if loaded_units and loaded_buildings and loaded_map and loaded_ai:
                             global units, buildings, game_map, ai
                             units, buildings, game_map, ai = loaded_units, loaded_buildings, loaded_map, loaded_ai
-                            game_loop_graphics()
+                            game_loop_graphics(player_side_state.player_side)
                     elif selected_option == 2:  # Nouvelle partie
                         start_new_game_graphics(screen, font)
                     elif selected_option == 3:  # Quitter
@@ -835,7 +873,7 @@ def start_new_game_graphics(screen, font):
         speed = 1.0
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai, player_side_state
+    global units, buildings, game_map, ai, player_side_state, enemy_units, enemy_buildings, enemy_ai
     
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_graphics(screen, font)
@@ -843,21 +881,46 @@ def start_new_game_graphics(screen, font):
     game_map = Map(120, 120)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
-    town_center = Building('Town Center', 10, 10)
-    game_map.place_building(town_center, 10, 10)
-    ai = AI(buildings, units)  # Initialisation de l'objet AI
-    villager = Unit('Villager', 9, 9, ai)
-    villager2 = Unit('Villager', 12, 9, ai)
-    villager3 = Unit('Villager', 9, 12, ai)
-    units = [villager, villager2, villager3]
-    buildings = [town_center]
-    ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+    
+    # ===== PLAYER 1 (Human) =====
+    town_center_p1 = Building('Town Center', 10, 10, owner='J1')
+    game_map.place_building(town_center_p1, 10, 10)
+    
+    villager_p1 = Unit('Villager', 9, 9, None, owner='J1')
+    villager2_p1 = Unit('Villager', 12, 9, None, owner='J1')
+    villager3_p1 = Unit('Villager', 9, 12, None, owner='J1')
+    units = [villager_p1, villager2_p1, villager3_p1]
+    buildings = [town_center_p1]
+    
+    ai = AI(buildings, units)
+    # Update units with AI reference
+    for unit in units:
+        unit.ai = ai
     
     # Set the player AI in game state
     player_side_state.set_player_ai(ai)
+    
+    # ===== PLAYER 2 (Enemy/AI) =====
+    # Place enemy town center on the opposite side of the map
+    town_center_p2 = Building('Town Center', 110, 110, owner='J2')
+    game_map.place_building(town_center_p2, 110, 110)
+    
+    # Create enemy units
+    villager_p2 = Unit('Villager', 109, 109, None, owner='J2')
+    villager2_p2 = Unit('Villager', 112, 109, None, owner='J2')
+    villager3_p2 = Unit('Villager', 109, 112, None, owner='J2')
+    enemy_units = [villager_p2, villager2_p2, villager3_p2]
+    enemy_buildings = [town_center_p2]
+    
+    # Create enemy AI
+    enemy_ai = AI(enemy_buildings, enemy_units)
+    
+    # Update enemy units with enemy AI
+    for unit in enemy_units:
+        unit.ai = enemy_ai
 
     # Lancer la boucle de jeu graphique
-    game_loop_graphics()
+    game_loop_graphics(player_side_state.player_side)
 
 def render_text(screen, font, text, position, color=(255, 255, 255)):
     text_surface = font.render(text, True, color)
@@ -866,7 +929,7 @@ def render_text(screen, font, text, position, color=(255, 255, 255)):
 
 
 def init_game():
-    global units, buildings, game_map, ai, player_side_state
+    global units, buildings, game_map, ai, player_side_state, enemy_units, enemy_buildings, enemy_ai
     player_side_state.player_side = 'J1'  # Set player side (default J1)
     os.makedirs(SAVE_DIR, exist_ok=True)
     loaded_units, loaded_buildings, loaded_map, loaded_ai = load_game_state(DEFAULT_SAVE)
@@ -876,18 +939,37 @@ def init_game():
         game_map = Map(120, 120)
         game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
         game_map.generate_gold_clusters(num_clusters=4)
-        town_center = Building('Town Center', 10, 10)
-        game_map.place_building(town_center, 10, 10)
-        ai = AI(buildings, units)  # Initialisation de l'objet AI
-        villager = Unit('Villager', 9, 9, ai)
-        villager2 = Unit('Villager', 12, 9, ai)
-        villager3 = Unit('Villager', 9, 12, ai)
-        units = [villager, villager2, villager3]
-        buildings = [town_center]
-        ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+        
+        # ===== PLAYER 1 (Human) =====
+        town_center_p1 = Building('Town Center', 10, 10, owner='J1')
+        game_map.place_building(town_center_p1, 10, 10)
+        
+        villager_p1 = Unit('Villager', 9, 9, None, owner='J1')
+        villager2_p1 = Unit('Villager', 12, 9, None, owner='J1')
+        villager3_p1 = Unit('Villager', 9, 12, None, owner='J1')
+        units = [villager_p1, villager2_p1, villager3_p1]
+        buildings = [town_center_p1]
+        
+        ai = AI(buildings, units)
+        for unit in units:
+            unit.ai = ai
         
         # Set the player AI in game state
         player_side_state.set_player_ai(ai)
+        
+        # ===== PLAYER 2 (Enemy/AI) =====
+        town_center_p2 = Building('Town Center', 110, 110, owner='J2')
+        game_map.place_building(town_center_p2, 110, 110)
+        
+        villager_p2 = Unit('Villager', 109, 109, None, owner='J2')
+        villager2_p2 = Unit('Villager', 112, 109, None, owner='J2')
+        villager3_p2 = Unit('Villager', 109, 112, None, owner='J2')
+        enemy_units = [villager_p2, villager2_p2, villager3_p2]
+        enemy_buildings = [town_center_p2]
+        
+        enemy_ai = AI(enemy_buildings, enemy_units)
+        for unit in enemy_units:
+            unit.ai = enemy_ai
 
 
 

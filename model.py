@@ -228,7 +228,6 @@ class Unit:
             food_gathered = self.working_farm.gather_food(amount)
             self.resource_collected += food_gathered
             self.current_resource = 'Food'
-            # Network message would be sent from controller level
 
             if self.resource_collected >= self.max_capacity:
                 print(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
@@ -239,29 +238,6 @@ class Unit:
                 self.action_end_time = current_time + 5  # Prochaine récolte
 
             farm.network_owner = farm  # Libère la ferme pour d'autres unités
-            # Occupation pendant la récolte
-            if not self.working_farm.is_occupied():
-                self.working_farm.occupy()
-                #Print_Display(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
-
-            current_time = time.time()
-            if not hasattr(self, 'action_end_time'):
-                self.action_end_time = current_time + 5  # Timer initial pour la récolte
-
-            if current_time >= self.action_end_time:
-                amount = min(20, self.max_capacity - self.resource_collected)
-                food_gathered = self.working_farm.gather_food(amount)
-                self.resource_collected += food_gathered
-                self.current_resource = 'Food'
-                #Print_Display(f"{self.unit_type} récolte {food_gathered} unités de nourriture.")
-
-                if self.resource_collected >= self.max_capacity:
-                    #Print_Display(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
-                    self.returning_to_town_center = True
-                    self.working_farm.free()
-                    self.working_farm = None
-                else:
-                    self.action_end_time = current_time + 5  # Prochaine récolte
 
     def deposit_resource(self, building):
         if building and building.building_type == 'Town Center' and self.current_resource:
