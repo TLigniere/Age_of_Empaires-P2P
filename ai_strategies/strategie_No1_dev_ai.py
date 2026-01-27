@@ -1,5 +1,6 @@
 import time
 from ai_strategies.base_strategies import AIStrategy
+from view import Print_Display
 
 class StrategieNo1(AIStrategy):
     def execute(self, units, buildings, game_map, ai):
