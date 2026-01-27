@@ -3,6 +3,7 @@ import heapq  # Pour la recherche de chemin
 import time
 from view import Print_Display
 
+Joueur = 'J1'  # Variable globale pour le joueur actuel
 
 class GameElement:
     """Represents a game element with network control capabilities"""
@@ -91,11 +92,11 @@ class Map:
         return f"type:'MAP_INIT',seed:{self.seed},width:{self.width},height:{self.height}"
 
 class Building:
-    def __init__(self, building_type, x, y, owner='J1'):
+    def __init__(self, building_type, x, y, owner=None):
         self.building_type = building_type  # Par exemple, 'Town Center'
         self.x = x
         self.y = y
-        self.owner = owner  # ========== NOUVEAU : Propriétaire du bâtiment ==========
+        self.owner = owner if owner is not None else Joueur  # Utilise Joueur si owner n'est pas fourni
         self.resources = {
             'Wood': 0,
             'Gold': 0,
@@ -154,15 +155,13 @@ class Building:
 
 
 class Unit:
-    _id_counter = 0
-    
-    def __init__(self, unit_type, x, y, ai, owner='J1', network=None):
+    def __init__(self, unit_type, x, y, ai, owner=None, network=None):
         self.network = network
         self.unit_type = unit_type  # Par exemple : 'Villager'
         self.x = x  # Position x sur la carte
         self.y = y  # Position y sur la carte
         self.ai = ai
-        self.owner = owner  # ========== NOUVEAU : Propriétaire de l'unité (J1 ou J2) ==========
+        self.owner = owner if owner is not None else Joueur  # Utilise Joueur si owner n'est pas fourni
         self.resource_collected = 0  # Quantité de ressources que l'unité a collectée
         self.max_capacity = 20  # Quantité maximale que le villageois peut porter
         self.returning_to_town_center = False  # Si le villageois retourne au Town Center pour déposer les ressources
@@ -195,18 +194,21 @@ class Unit:
                     self.returning_to_town_center = True
                 tile.resource = None
             else:
-                print(f"{self.unit_type} ne peut pas récolter {element.id}, réseau occupé par un autre joueur.")
+                pass
+               #Print_Display(f"{self.unit_type} ne peut pas récolter {element.id}, réseau occupé par un autre joueur.")
 
             element.network_owner = element.owner  # Remet le network_owner à l'owner réel
             
 
     def gather_food_from_farm(self):
         """Récolte la nourriture de la ferme en continu jusqu'à épuisement."""
+
         if not self.working_farm:
             return
+        
         farm = self.working_farm
         if self.working_farm.is_empty():
-                print(f"Ferme à ({self.working_farm.x}, {self.working_farm.y}) est épuisée.")
+               #Print_Display(f"Ferme à ({self.working_farm.x}, {self.working_farm.y}) est épuisée.")
                 self.working_farm = None
                 return
             
@@ -215,10 +217,15 @@ class Unit:
             farm.network_owner = farm  # On met le propriétaire initial
         farm.network_owner = self.ai
 
+        #Print_Display(f"Vérification de la ferme : {self.working_farm}")
+        #Print_Display(f"Methodes disponibles : {dir(self.working_farm)}")
+        #Print_Display(f"Type of object, farm: {type(self.working_farm)}")
+        #time.sleep(10)
+
         # Occupation pendant la récolte
         if not self.working_farm.is_occupied():
             self.working_farm.occupy()
-            print(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
+           #Print_Display(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
 
         current_time = time.time()
         if not hasattr(self, 'action_end_time'):
@@ -232,7 +239,7 @@ class Unit:
             # Network message would be sent from controller level
 
             if self.resource_collected >= self.max_capacity:
-                print(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
+               #Print_Display(f"{self.unit_type} a atteint sa capacité maximale en nourriture.")
                 self.returning_to_town_center = True
                 self.working_farm.free()
                 self.working_farm = None
@@ -241,8 +248,8 @@ class Unit:
 
             farm.network_owner = farm  # Libère la ferme pour d'autres unités
             # Occupation pendant la récolte
-            if not self.working_farm.is_occupied():
-                self.working_farm.occupy()
+            """             #if not self.working_farm.is_occupied():
+            #    self.working_farm.occupy()
                 #Print_Display(f"{self.unit_type} commence à récolter dans la ferme à ({self.working_farm.x}, {self.working_farm.y}).")
 
             current_time = time.time()
@@ -262,7 +269,7 @@ class Unit:
                     self.working_farm.free()
                     self.working_farm = None
                 else:
-                    self.action_end_time = current_time + 5  # Prochaine récolte
+                    self.action_end_time = current_time + 5  # Prochaine récolte """
 
     def deposit_resource(self, building):
         if building and building.building_type == 'Town Center' and self.current_resource:

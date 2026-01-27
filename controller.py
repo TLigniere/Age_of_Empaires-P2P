@@ -2,9 +2,10 @@ import curses
 import time
 import os
 import pygame
+import subprocess
 import sys
 import signal
-from model import Map, Unit, Building
+from model import Map, Unit, Building, Joueur
 from view import display_with_curses, handle_input, init_colors, Print_Display
 from view_graphics import handle_input_pygame, render_map, screen_width, screen_height, TILE_WIDTH, TILE_HEIGHT, initialize_graphics
 from game_utils import save_game_state, load_game_state
@@ -52,6 +53,11 @@ class GameState:
 units, buildings, game_map, ai = None, None, None, None
 game_state = GAME_PLAYING
 player_side_state = GameState()  # Track player side
+network = None  # Global network client
+
+NETWORK_PYTHON_PORT = 5001
+NETWORK_MY_PORT = 5000
+NETWORK_DEST_PORT = 6000
 
 class GameElement:
     def __init__(self, id, owner=None):
@@ -272,8 +278,6 @@ def update_game(units, buildings, game_map, ai, strategy, delay, last_update_tim
 
 def send_game_state_to_c(network, units, buildings, ai, player_side):
     """Send current game state to C process"""
-    if not network.is_connected():
-        return
     
     try:
         # Send unit positions
@@ -283,7 +287,8 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
         # Send resource information
         if ai and ai.resources:
             res_msg = f"wood:{ai.resources.get('Wood', 0)},gold:{ai.resources.get('Gold', 0)},food:{ai.resources.get('Food', 0)}"
-            network.send_to_c("RESOURCES", res_msg)
+            network.send("RESOURCES", res_msg)
+            Print_Display(f"[DEBUG] Sent to C: {res_msg}")
         
         # Send building information
         for building in buildings:
@@ -291,15 +296,15 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
     except Exception as e:
         Print_Display(f"[WARNING] Error sending game state to C: {str(e)}")
 
-def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0):
-    """Check if it's time to autosave (every save_interval seconds)"""
-    try:
-        if current_time - last_save_time > save_interval:
-            save_game_state(units, buildings, game_map, ai, DEFAULT_SAVE)
-            return current_time
-    except Exception as e:
-        Print_Display(f"[WARNING] Autosave failed: {e}")
-    return last_save_time
+# def periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0):
+#     """Check if it's time to autosave (every save_interval seconds)"""
+#     try:
+#         if current_time - last_save_time > save_interval:
+#             save_game_state(units, buildings, game_map, ai, DEFAULT_SAVE)
+#             return current_time
+#     except Exception as e:
+#         Print_Display(f"[WARNING] Autosave failed: {e}")
+#     return last_save_time
 
 def escape_menu_curses(stdscr):
     options = ["1. Sauvegarder", "2. Charger", "3. Reprendre", "4. Retour au Menu Principal", "5. Quitter"]
@@ -443,9 +448,15 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    global units, buildings, game_map, ai, game_state
-
-    network = NetworkClient(enable_network=ENABLE_NETWORK)
+    global network
+    
+    # Initialiser le network client s'il n'existe pas
+    if network is None:
+        try:
+            network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=int(NETWORK_MY_PORT))
+        except Exception as e:
+            Print_Display(f"[ERROR] Échec de la connexion au processus C : {e}")
+            return
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -465,15 +476,17 @@ def game_loop_curses(stdscr):
 
         network.poll()
 
-        if not network.is_connected():
-            game_state = GAME_PAUSED
-        if game_state == GAME_PAUSED:
-            stdscr.addstr(0, 0, "Connexion perdue - jeu en pause")
-            stdscr.refresh()
-            time.sleep(0.5)
-            continue
+        messages = network.consume_messages()
+        for msg_type, payload in messages:
+            if msg_type == "PING":
+                Print_Display("[PING] {payload}")
+            else:
+                Print_Display(f"[{msg_type}] {payload}")
 
         current_time = time.time()
+
+        # Accéder au côté du joueur
+        Joueur = player_side_state.player_side  # Retourne 'J1' ou 'J2'
 
         # Gère les entrées utilisateur et affiche la carte en curses
         view_x, view_y = handle_input(stdscr, view_x, view_y, max_height, max_width, game_map)
@@ -487,7 +500,7 @@ def game_loop_curses(stdscr):
             last_network_send_time = current_time
         
         # Auto-save game state (every 5 seconds)
-        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
+        # last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
         key = stdscr.getch()
         if key == curses.KEY_F12:
@@ -499,9 +512,15 @@ def game_loop_curses(stdscr):
 
 # Correction dans la fonction game_loop_graphics
 def game_loop_graphics():
-    global units, buildings, game_map, ai, game_state
+    global units, buildings, game_map, ai, game_state, network
 
-    network = NetworkClient(enable_network=ENABLE_NETWORK)
+    # Réutiliser le network existant s'il existe, sinon en créer un nouveau
+    if network is None:
+        try:
+            network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=int(NETWORK_MY_PORT))
+        except Exception as e:
+            Print_Display(f"[ERROR] Échec de la connexion au processus C : {e}")
+            return
 
     # Initialiser pygame pour le mode graphique
     screen = initialize_graphics()
@@ -519,9 +538,7 @@ def game_loop_graphics():
         current_time = time.time()
 
         network.poll()
-        if not network.is_connected():
-            Print_Display("Connexion perdue")
-            continue
+
         
         # Gère les entrées utilisateur pour le scrolling de la carte
         view_x, view_y = handle_input_pygame(view_x, view_y, max_width, max_height, game_map)
@@ -535,7 +552,7 @@ def game_loop_graphics():
             last_network_send_time = current_time
         
         # Auto-save game state (every 5 seconds)
-        last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
+        # last_save_time = periodic_autosave(units, buildings, game_map, ai, current_time, last_save_time, save_interval=5.0)
 
         # Rendu de la carte et des unités
         render_map(screen, game_map, units, buildings, player_side_state, view_x, view_y, max_width, max_height)
@@ -605,7 +622,10 @@ def start_new_game_curses(stdscr):
         ("Taille de la carte (par défaut 120x120): ", "120"),
         ("Nombre de clusters de bois (par défaut 10): ", "10"),
         ("Nombre de clusters d'or (par défaut 4): ", "4"),
-        ("Vitesse du jeu (par défaut 1.0): ", "1.0")
+        ("Vitesse du jeu (par défaut 1.0): ", "1.0"),
+        ("Port réseau (par défaut 5000): ", "5000"),
+        ("Port pyhton (par défaut 5001): ", "5001"),
+        ("Port distant (par défaut 6000): ", "6000")
     ]
     input_values = []
 
@@ -641,6 +661,9 @@ def start_new_game_curses(stdscr):
         wood_clusters = int(input_values[1])
         gold_clusters = int(input_values[2])
         speed = float(input_values[3])
+        my_port = int(input_values[4])
+        python_port = int(input_values[5])
+        dest_port = int(input_values[6])
     except ValueError:
         stdscr.addstr(len(input_fields) + 2, 0, "Erreur : Entrée invalide, utilisation des valeurs par défaut.")
         stdscr.refresh()
@@ -649,12 +672,23 @@ def start_new_game_curses(stdscr):
         wood_clusters = 10
         gold_clusters = 4
         speed = 1.0
+        my_port = 5000
+        python_port = 5001
+        dest_port = 6000
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai, player_side_state
+    global units, buildings, game_map, ai, player_side_state, NETWORK_MY_PORT, NETWORK_PYTHON_PORT, NETWORK_DEST_PORT
     
+    NETWORK_MY_PORT = my_port
+    NETWORK_DEST_PORT = dest_port
+    NETWORK_PYTHON_PORT = python_port
+
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_curses(stdscr)
+    
+    # Synchroniser la variable globale Joueur
+    import model as model_module
+    model_module.Joueur = player_side_state.player_side
     
     game_map = Map(map_size, map_size)
     game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
@@ -678,6 +712,18 @@ def start_new_game_curses(stdscr):
     
     # Set the player AI in game state
     player_side_state.set_player_ai(ai)
+
+    # Initialiser la communication réseau
+    NET_ME = str(my_port)
+    NET_DEST = str(dest_port)
+    PY_PORT = str(python_port)
+    GAMEP2P_EXE = "./network/GameP2P.exe"
+    try:
+        bridge_proc = subprocess.Popen([GAMEP2P_EXE, NET_ME, NET_DEST, PY_PORT])
+        time.sleep(0.5)
+        print(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {NET_ME} {NET_DEST} {PY_PORT}")
+    except Exception as e:
+        Print_Display(f"[ERROR] Échec du lancement du processus réseau C : {e}")
 
     # Lancer la boucle de jeu avec curses
     curses.wrapper(game_loop_curses)
@@ -803,6 +849,10 @@ def start_new_game_graphics(screen, font):
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_graphics(screen, font)
     
+    # Synchroniser la variable globale Joueur
+    import model as model_module
+    model_module.Joueur = player_side_state.player_side
+    
     game_map = Map(120, 120)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
@@ -857,102 +907,68 @@ def init_game():
 
 
 class NetworkClient:
-    def __init__(self, python_port=5000, dest_port=6000, enable_network=False):
-        """
-        Initialize NetworkClient
-        Args:
-            python_port: Port to listen on
-            dest_port: Port to send to
-            enable_network: Whether to enable network communication (False for local testing)
-        """
-        self.enable_network = enable_network
-        self.connected = False  # Start as disconnected until C process connects
+    def __init__(self, python_port, my_port):
+        self.python_port = python_port
+        self.bridge_port = my_port
+        
+        self.connected = False
         self.inbox = []
         self.last_msg_time = time.time()
-        self.dest_port = dest_port
-        self.sock = None
-
-        # Only create socket if network is enabled
-        if self.enable_network:
-            try:
-                # Socket UDP
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                self.sock.bind(("127.0.0.1", python_port))
-                self.sock.setblocking(False)  # Non bloquant
-                self.connected = True
-                Print_Display("[INFO] Network client initialized and listening")
-            except OSError as e:
-                Print_Display(f"[WARNING] Failed to initialize network: {e}")
-                self.connected = False
-        else:
-            Print_Display("[INFO] Network is disabled - running in local mode")
-
-    def _read_from_c(self):
-        messages = []
         
-        # If network is disabled, return empty list
-        if not self.enable_network or not self.sock:
-            return messages
-            
-        try:
-            while True:
-                data, addr = self.sock.recvfrom(4096)
-                messages.append(data.decode())
-                self.last_msg_time = time.time()
-        except BlockingIOError:
-            pass
-        except (ConnectionResetError, OSError) as e:
-            # Connection closed by remote host or other socket error
-            self.connected = False
-            Print_Display(f"[WARNING] Network error: {e}")
-        return messages
+        # Socket UDP Non-Bloquant
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("127.0.0.1", self.python_port))
+        self.sock.setblocking(False)
+        
+        print(f"[NET] Client prêt sur port {self.python_port} -> Bridge {self.bridge_port}")
 
     def poll(self):
-        """Poll les messages et les met dans self.inbox"""
+        """Récupère les messages du C et vérifie le timeout"""
         try:
-            for raw_msg in self._read_from_c():
-                if "|" in raw_msg:
-                    msg_type, payload = raw_msg.split("|", 1)
-                else:
-                    msg_type = raw_msg
-                    payload = ""
+            while True: # On vide tout le buffer d'un coup
+                data, _ = self.sock.recvfrom(4096)
+                msg = data.decode().strip()
                 
-                if msg_type == "SYSTEM" and payload.startswith("DISCONNECTED"):
-                    self.connected = False
+                # Parsing simple
+                if "|" in msg:
+                    parts = msg.split("|", 1)
+                    self.inbox.append((parts[0], parts[1]))
                 else:
-                    # Stocke sous forme de tuple (type, payload)
-                    self.inbox.append((msg_type, payload))
-        except Exception as e:
-            Print_Display(f"[WARNING] Error in poll: {e}")
+                    self.inbox.append((msg, ""))
+                
+                # Le spam de données maintient la connexion en vie
+                self.last_msg_time = time.time()
+                if not self.connected:
+                    self.connected = True
+                    print("[NET] Connexion détectée !")
+                    
+        except BlockingIOError:
+            pass # Rien à lire
+        except ConnectionResetError:
+            pass
+
+        # Timeout : Si le "spam" s'arrête pendant 2s, c'est mort
+        if self.connected and (time.time() - self.last_msg_time > 2.0):
+            print("[NET] ⚠️  Connexion perdue (Plus de données)")
             self.connected = False
 
-        # Si plus de message depuis 2s → on considère la connexion perdue
-        if time.time() - self.last_msg_time > 2.0:
-            self.connected = False
-
-    def is_connected(self):
-        """Return True if network is disabled or connected"""
-        # If network is disabled, always return True (don't pause the game)
-        if not self.enable_network:
-            return True
-        return self.connected
-    
-    def send_to_c(self, msg_type, payload="", dest_port=6000):
-        """Send message to C process with error handling"""
-        
-        # If network is disabled, silently ignore
-        if not self.enable_network or not self.sock:
-            return
-            
+    def send(self, msg_type, payload=""):
+        """Envoie vers le C"""
+        msg = f"{msg_type}|{payload}" if payload else msg_type
         try:
-            message = f"{msg_type}|{payload}" if payload else msg_type
-            dest_addr = ("127.0.0.1", self.dest_port)
-            self.sock.sendto(message.encode(), dest_addr)
-        except (ConnectionResetError, OSError) as e:
-            self.connected = False
-            Print_Display(f"[WARNING] Failed to send to C: {e}")
-        except Exception as e:
-            Print_Display(f"[WARNING] Unexpected error sending to C: {e}")
+            self.sock.sendto(msg.encode(), ("127.0.0.1", self.bridge_port))
+        except OSError:
+            pass
+
+    def send_ping(self, unit_id, x, y):
+        """Envoie un ping pour notifier un mouvement de villager"""
+        payload = f"unit_id:{unit_id},x:{x},y:{y}"
+        self.send("PING", payload)
+
+    def consume_messages(self):
+        msgs = self.inbox[:]
+        self.inbox.clear()
+        return msgs
 
 
 def main():
@@ -964,6 +980,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-

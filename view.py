@@ -39,7 +39,7 @@ def define_characters(tile,game_state):
     else:
         return ('.', 3)  # Tuile vide représentée par un point
     
-def define_boxes(stdscr, game_map):
+def define_boxes(stdscr):
     """Définit les différentes boîtes pour l'affichage."""
     global mapDisplay, printDisplay, connexionDisplay, infoDisplay
 
@@ -52,11 +52,25 @@ def define_boxes(stdscr, game_map):
     
     max_clm=int(max_width/2-3)
     max_row=max_height-7
+
+    sizeMap =           (int(max_height)                                    , int(max_width / 2))
+    sizeInfo =          (int(max_height/4)                                  , int(max_width / 2))
+    sizeConnexion =     (int(max_height/8)                                  , int(max_width / 2))
+    sizePrint =         (int(max_height - sizeConnexion[0] - sizeInfo[0])   , int(max_width / 2))
+
+    # Xdisplay =        curses.newwin(height            , width             , position_y                        , position_x )
     
-    mapDisplay = curses.newwin(max_height - 5, int(max_width / 2), 0, 0)
-    printDisplay = curses.newwin(5, max_width, max_height - 5, 0)
-    connexionDisplay = curses.newwin(5, int(max_width / 2), 0, int(max_width / 2))
-    infoDisplay = curses.newwin(max_height - 10, int(max_width / 2), 5, int(max_width / 2))
+    mapDisplay =        curses.newwin(sizeMap[0]        , sizeMap[1]        , 0                                 , 0         )
+    infoDisplay =       curses.newwin(sizeInfo[0]       , sizeInfo[1]       , sizeConnexion[0]                  , sizeMap[1])
+    connexionDisplay =  curses.newwin(sizeConnexion[0]  , sizeConnexion[1]  , 0                                 , sizeMap[1])
+    printDisplay =      curses.newwin(sizePrint[0]      , sizePrint[1]      , sizeConnexion[0] + sizeInfo[0]    , sizeMap[1])
+
+    # Xdisplay = curses.newwin( height, width, position_y, position_x )
+
+    max_row,max_height = mapDisplay.getmaxyx()
+
+    max_clm=int(max_width/2-3)
+    max_row=max_row - 2
 
     Print_Display("Affichage initialisé.")
 
@@ -66,14 +80,14 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     try:
         mapDisplay.clear()
     except NameError:
-        define_boxes(stdscr, game_map)
+        define_boxes(stdscr)
 
     #unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
 
     unit_positions = {}
     for unit in units:
         # Détermine la couleur selon le propriétaire
-        if unit.owner == game_state.player_side:
+        if unit.owner == "J1":
             color_pair = 10  # Bleu pour J1
         else:
             color_pair = 11  # Rouge pour J2
@@ -122,12 +136,16 @@ def Print_Display(Text,Color=3):
         printDisplay.erase()
         printDisplay.border( 0 )
 
+        Text=str(Text)
+
+        Display_Height, Display_Width = printDisplay.getmaxyx()
+
         Queue.insert(0, [Text,Color])
         
-        if len(Queue) > 3:
+        if len(Queue) > Display_Height -2 :
             Queue.pop()
 
-        for i in range(0, 3):
+        for i in range(0, Display_Height -2):
             Text_to_display = Queue[i][0] if len(Queue) > i else ""
             Color = Queue[i][1] if len(Queue) > i else False
 
