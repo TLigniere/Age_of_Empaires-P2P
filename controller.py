@@ -836,7 +836,8 @@ def init_game():
     if loaded_units and loaded_buildings and loaded_map and loaded_ai:
         units, buildings, game_map, ai = loaded_units, loaded_buildings, loaded_map, loaded_ai
     else:
-        game_map = Map(120, 120)
+        seed = int(time.time())  # pour générer la même map des deux côtés
+        game_map = Map(120, 120, seed)
         game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
         game_map.generate_gold_clusters(num_clusters=4)
         town_center = Building('Town Center', 10, 10)
@@ -848,9 +849,10 @@ def init_game():
         units = [villager, villager2, villager3]
         buildings = [town_center]
         ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+        network.send(game_map.to_network_message())
         
         # Set the player AI in game state
-        player_side_state.set_player_ai(ai)
+        #player_side_state.set_player_ai(ai)
 
 
 

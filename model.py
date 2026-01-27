@@ -29,12 +29,14 @@ class Tile:
         self.unit = None      # Référence à un objet Unit s'il y en a une
 
 
-class Map:
-    def __init__(self, width, height):
+class Map:    
+    def __init__(self, width, height, seed):
         self.width = width
         self.height = height
         self.grid = [[Tile() for _ in range(width)] for _ in range(height)]  # Assume qu'une classe Tile est définie
-
+        self.seed = seed
+        self.rng = random.Random(seed)
+    
     # Nouvelle méthode is_empty
     def is_empty(self, x, y):
         """Vérifie si une position donnée est libre (sans bâtiment, ressource ou unité)."""
@@ -45,23 +47,20 @@ class Map:
         tile = self.grid[y][x]
 
         # Vérifie si la case ne contient ni ressource ni bâtiment
-        if not tile.resource and not tile.building and not tile.unit:
-            return True
-
-        return False
+        return (not tile.resource and not tile.building and not tile.unit)
 
 
     def generate_forest_clusters(self, num_clusters, cluster_size):
         for _ in range(num_clusters):
-            start_x = random.randint(0, self.width - 1)
-            start_y = random.randint(0, self.height - 1)
+            start_x = self.rng.randint(0, self.width - 1)
+            start_y = self.rng.randint(0, self.height - 1)
             self._create_cluster(start_x, start_y, cluster_size, 'Wood')
 
     def generate_gold_clusters(self, num_clusters):
         for _ in range(num_clusters):
-            start_x = random.randint(0, self.width - 1)
-            start_y = random.randint(0, self.height - 1)
-            cluster_size = random.randint(3, 10)
+            start_x = self.rng.randint(0, self.width - 1)
+            start_y = self.rng.randint(0, self.height - 1)
+            cluster_size = self.rng.randint(3, 10)
             self._create_cluster(start_x, start_y, cluster_size, 'Gold')
 
     def _create_cluster(self, x, y, size, resource_type):
@@ -75,7 +74,7 @@ class Map:
                     self.grid[current_y][current_x].resource = resource_type
                     size -= 1
 
-                    random.shuffle(directions)  # Mélanger les directions pour rendre la forme plus organique
+                    self.rng.shuffle(directions)  # Mélanger les directions pour rendre la forme plus organique
                     for dx, dy in directions:
                         new_x, new_y = current_x + dx, current_y + dy
                         if (new_x, new_y) not in tiles_to_fill and 0 <= new_x < self.width and 0 <= new_y < self.height:
@@ -87,10 +86,9 @@ class Map:
             self.grid[y][x].building = building
             if building.building_type == 'Farm':
                 self.grid[y][x].resource = 'Food'
-            # Network message would be sent from controller level
-
-            #Print_Display(f"Bâtiment {building.building_type} placé à ({x}, {y})")
-
+    
+    def to_network_message(self):
+        return f"type:'MAP_INIT',seed:{self.seed},width:{self.width},height:{self.height}"
 
 class Building:
     def __init__(self, building_type, x, y, owner='J1'):
@@ -157,9 +155,6 @@ class Building:
 
 class Unit:
     _id_counter = 0
-
-    def to_network_message(self):
-        return f"id:{self.id},type:{self.unit_type},x:{self.x},y:{self.y},owner:{self.owner}"
     
     def __init__(self, unit_type, x, y, ai, owner='J1', network=None):
         self.network = network
@@ -389,3 +384,6 @@ class Unit:
             current = came_from[current]
         path.reverse()  # On inverse le chemin pour partir de la position de départ
         return path
+
+    def to_network_message(self):
+        return f"id:{self.id},type:{self.unit_type},x:{self.x},y:{self.y},owner:{self.owner}"
