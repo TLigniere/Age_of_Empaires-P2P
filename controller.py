@@ -2,6 +2,7 @@ import curses
 import time
 import os
 import pygame
+import subprocess
 import sys
 import signal
 from model import Map, Unit, Building
@@ -52,6 +53,10 @@ class GameState:
 units, buildings, game_map, ai = None, None, None, None
 game_state = GAME_PLAYING
 player_side_state = GameState()  # Track player side
+
+NETWORK_PYTHON_PORT = 5001
+NETWORK_MY_PORT = 5000
+NETWORK_DEST_PORT = 6000
 
 class GameElement:
     def __init__(self, id, owner=None):
@@ -445,9 +450,9 @@ def escape_menu_graphics(screen):
 
 
 def game_loop_curses(stdscr):
-    global units, buildings, game_map, ai, game_state
+    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
 
-    network = NetworkClient(enable_network=ENABLE_NETWORK)
+    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, my_port=NETWORK_MY_PORT)
 
     max_height, max_width = stdscr.getmaxyx()
     max_height = max_height - 10
@@ -467,13 +472,12 @@ def game_loop_curses(stdscr):
 
         network.poll()
 
-        if not network.is_connected():
-            game_state = GAME_PAUSED
-        if game_state == GAME_PAUSED:
-            stdscr.addstr(0, 0, "Connexion perdue - jeu en pause")
-            stdscr.refresh()
-            time.sleep(0.5)
-            continue
+        messages = network.consume_message()
+        for msg_type, payload in messages:
+            if msg_type == "PING":
+                Print_Display("[PING] {payload}")
+            else:
+                Print_Display(f"[{msg_type}] {payload}")
 
         current_time = time.time()
 
@@ -503,7 +507,7 @@ def game_loop_curses(stdscr):
 def game_loop_graphics():
     global units, buildings, game_map, ai, game_state
 
-    network = NetworkClient(enable_network=ENABLE_NETWORK)
+    network = NetworkClient(python_port=NETWORK_PYTHON_PORT, bridge_port=int(NETWORK_MY_PORT))
 
     # Initialiser pygame pour le mode graphique
     screen = initialize_graphics()
@@ -521,9 +525,7 @@ def game_loop_graphics():
         current_time = time.time()
 
         network.poll()
-        if not network.is_connected():
-            Print_Display("Connexion perdue")
-            continue
+
         
         # Gère les entrées utilisateur pour le scrolling de la carte
         view_x, view_y = handle_input_pygame(view_x, view_y, max_width, max_height, game_map)
@@ -607,7 +609,10 @@ def start_new_game_curses(stdscr):
         ("Taille de la carte (par défaut 120x120): ", "120"),
         ("Nombre de clusters de bois (par défaut 10): ", "10"),
         ("Nombre de clusters d'or (par défaut 4): ", "4"),
-        ("Vitesse du jeu (par défaut 1.0): ", "1.0")
+        ("Vitesse du jeu (par défaut 1.0): ", "1.0"),
+        ("Port réseau (par défaut 5000): ", "5000"),
+        ("Port pyhton (par défaut 5001): ", "5001"),
+        ("Port distant (par défaut 6000): ", "6000")
     ]
     input_values = []
 
@@ -643,6 +648,9 @@ def start_new_game_curses(stdscr):
         wood_clusters = int(input_values[1])
         gold_clusters = int(input_values[2])
         speed = float(input_values[3])
+        my_port = int(input_values[4])
+        python_port = int(input_values[5])
+        dest_port = int(input_values[6])
     except ValueError:
         stdscr.addstr(len(input_fields) + 2, 0, "Erreur : Entrée invalide, utilisation des valeurs par défaut.")
         stdscr.refresh()
@@ -651,10 +659,17 @@ def start_new_game_curses(stdscr):
         wood_clusters = 10
         gold_clusters = 4
         speed = 1.0
+        my_port = 5000
+        python_port = 5001
+        dest_port = 6000
 
     # Initialisation de la nouvelle partie
-    global units, buildings, game_map, ai, player_side_state
+    global units, buildings, game_map, ai, player_side_state, NETWORK_MY_PORT, NETWORK_PYTHON_PORT, NETWORK_DEST_PORT
     
+    NETWORK_MY_PORT = my_port
+    NETWORK_DEST_PORT = dest_port
+    NETWORK_PYTHON_PORT = python_port
+
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_curses(stdscr)
     
@@ -680,6 +695,15 @@ def start_new_game_curses(stdscr):
     
     # Set the player AI in game state
     player_side_state.set_player_ai(ai)
+
+    # Initialiser la communication réseau
+    NET_ME = str(my_port)
+    NET_DEST = str(dest_port)
+    PY_PORT = str(python_port)
+    GAMEP2P_EXE = "./network/GameP2P.exe"
+    bridge_proc = subprocess.Popen([GAMEP2P_EXE, NET_ME, NET_DEST, PY_PORT])
+    time.sleep(0.5)
+    print(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {NET_ME} {NET_DEST} {PY_PORT}")
 
     # Lancer la boucle de jeu avec curses
     curses.wrapper(game_loop_curses)
