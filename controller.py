@@ -493,12 +493,6 @@ def game_loop_curses(stdscr):
         # Accéder au côté du joueur
         Joueur = player_side_state.player_side  # Retourne 'J1' ou 'J2'
 
-        # Utiliser pour des conditions
-        if player_side_state.player_side == 'J1':
-            print(Joueur)
-        else:
-            print(Joueur)
-
         # Gère les entrées utilisateur et affiche la carte en curses
         view_x, view_y = handle_input(stdscr, view_x, view_y, max_height, max_width, game_map)
         display_with_curses(stdscr, game_map, units, player_side_state, ai, view_x, view_y)
