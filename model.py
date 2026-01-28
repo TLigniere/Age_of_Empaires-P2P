@@ -155,8 +155,14 @@ class Building:
 
 
 class Unit:
-    def __init__(self, unit_type, x, y, ai, owner=None, network=None):
-        self.network = network
+    _NEXT_NETWORK_ID = 1
+
+    def __init__(self, unit_type, x, y, ai, owner=None, network_id=None):
+        if network_id is None:
+            self.network_id = Unit._NEXT_NETWORK_ID
+            Unit._NEXT_NETWORK_ID += 1
+        else:
+            self.network_id = network_id
         self.unit_type = unit_type  # Par exemple : 'Villager'
         self.x = x  # Position x sur la carte
         self.y = y  # Position y sur la carte
