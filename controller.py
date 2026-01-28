@@ -53,6 +53,20 @@ class GameState:
         
     def set_player_ai(self, ai_obj):
         self.player_ai = ai_obj
+    
+    def get_player_color(self):
+        """Retourne la couleur RGB du joueur"""
+        if self.player_side == 'J1':
+            return (0, 100, 255)  # Bleu pour J1
+        else:
+            return (255, 0, 0)    # Rouge pour J2
+    
+    def get_enemy_color(self):
+        """Retourne la couleur RGB de l'ennemi"""
+        if self.player_side == 'J1':
+            return (255, 0, 0)    # Rouge pour J2 (ennemi de J1)
+        else:
+            return (0, 100, 255)  # Bleu pour J1 (ennemi de J2)
 
 # Global Variables
 units, buildings, game_map, ai = None, None, None, None
