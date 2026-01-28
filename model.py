@@ -27,16 +27,16 @@ class Tile:
     def __init__(self):
         self.resource = None  # Peut être une ressource comme 'Wood', 'Gold', etc.
         self.building = None  # Référence à un objet Building s'il y en a un
-        self.unit = None      # Référence à un objet Unit s'il y en a une
+        self.unit     = None  # Référence à un objet Unit s'il y en a une
 
 
 class Map:    
     def __init__(self, width, height, seed = 4173):
-        self.width = width
+        self.width  = width
         self.height = height
-        self.grid = [[Tile() for _ in range(width)] for _ in range(height)]  # Assume qu'une classe Tile est définie
-        self.seed = seed
-        self.rng = random.Random(seed)
+        self.grid   = [[Tile() for _ in range(width)] for _ in range(height)]  # Assume qu'une classe Tile est définie
+        self.seed   = seed
+        self.rng    = random.Random(seed)
     
     # Nouvelle méthode is_empty
     def is_empty(self, x, y):
