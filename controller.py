@@ -345,53 +345,54 @@ def escape_menu_curses(stdscr):
                 return  # Quitte le menu pour reprendre la partie
 
             case SpecialCode.ENTER:  # Touche entrée
-
-                if selected_option == 0:  # Sauvegarder
-                    clear_input_buffer(stdscr)
-                    stdscr.addstr(5, 0, "Nom de la sauvegarde :")
-                    stdscr.refresh()
-
-                    save_name = ""
-                    while True:
-                        key = stdscr.getch()
-                        if key == ord('\n'):
-                            if save_name.strip() == "":
-                                stdscr.addstr(6, 0, "Erreur : le nom ne peut pas être vide.")
-                                stdscr.refresh()
-                                time.sleep(2)
-                            else:
-                                break
-                        elif key in [curses.KEY_BACKSPACE, 127]:
-                            save_name = save_name[:-1]
-                            stdscr.addstr(6, 0, " " * 20)  # Efface la ligne précédente
-                            stdscr.addstr(6, 0, save_name)
-                            stdscr.refresh()
-                            
-                        elif 32 <= key <= 126:  # Caractères imprimables uniquement
-                            save_name += chr(key)
-                            stdscr.addstr(6, 0, save_name)
-                            stdscr.refresh()
-
-                    try:
-                        save_game_state(units, buildings, game_map, ai, os.path.join(SAVE_DIR, f"{save_name}.pkl"))
-                    except Exception as e:
-                        stdscr.addstr(7, 0, f"Erreur : {str(e)}")
+                
+                match selected_option:
+                    case 0:  # Sauvegarder
+                        clear_input_buffer(stdscr)
+                        stdscr.addstr(5, 0, "Nom de la sauvegarde :")
                         stdscr.refresh()
-                        time.sleep(2)
 
-                elif selected_option == 1:  # Charger
-                    load_existing_game_curses(stdscr)
-                    return  # Après chargement, lancez la boucle de jeu
+                        save_name = ""
+                        while True:
+                            key = stdscr.getch()
+                            if key == ord('\n'):
+                                if save_name.strip() == "":
+                                    stdscr.addstr(6, 0, "Erreur : le nom ne peut pas être vide.")
+                                    stdscr.refresh()
+                                    time.sleep(2)
+                                else:
+                                    break
+                            elif key in [curses.KEY_BACKSPACE, 127]:
+                                save_name = save_name[:-1]
+                                stdscr.addstr(6, 0, " " * 20)  # Efface la ligne précédente
+                                stdscr.addstr(6, 0, save_name)
+                                stdscr.refresh()
+                                
+                            elif 32 <= key <= 126:  # Caractères imprimables uniquement
+                                save_name += chr(key)
+                                stdscr.addstr(6, 0, save_name)
+                                stdscr.refresh()
 
-                elif selected_option == 2:  # Reprendre
-                    return  # Quitte le menu et reprend la partie
+                        try:
+                            save_game_state(units, buildings, game_map, ai, os.path.join(SAVE_DIR, f"{save_name}.pkl"))
+                        except Exception as e:
+                            stdscr.addstr(7, 0, f"Erreur : {str(e)}")
+                            stdscr.refresh()
+                            time.sleep(2)
 
-                elif selected_option == 3:  # Retour au Menu Principal
-                    curses.wrapper(main_menu_curses_internal)
-                    return
+                    case 1:  # Charger
+                        load_existing_game_curses(stdscr)
+                        return  # Après chargement, lancez la boucle de jeu
 
-                elif selected_option == 4:  # Quitter
-                    sys.exit(0)
+                    case 2:  # Reprendre
+                        return  # Quitte le menu et reprend la partie
+
+                    case 3:  # Retour au Menu Principal
+                        curses.wrapper(main_menu_curses_internal)
+                        return
+
+                    case 4:  # Quitter
+                        sys.exit(0)
 
 
 
