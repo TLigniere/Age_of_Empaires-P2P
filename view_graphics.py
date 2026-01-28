@@ -72,40 +72,27 @@ def render_map(screen, game_map, units, buildings, game_state, view_x, view_y, m
             else:
                 screen.blit(images['grass'], (iso_x, iso_y))
 
-    # ========== MODIFIÉ : Render buildings avec couleurs ==========
+    # ========== Render buildings ==========
     for building in buildings:
         screen_x = (building.x - building.y) * (TILE_WIDTH // 2) + (screen_width // 2) - TILE_WIDTH // 2 - (view_x - view_y) * (TILE_WIDTH // 2)
         screen_y = (building.x + building.y) * (TILE_HEIGHT // 2) - (view_x + view_y) * (TILE_HEIGHT // 2)
         
-        # Déterminer la couleur selon le propriétaire
-        if building.owner == game_state.player_side:
-            color = game_state.get_player_color()
-        else:
-            color = game_state.get_enemy_color()
-        
         if building.building_type == 'Town Center':
-            colored_building = colorize_image(images['town_center'], color)
-            screen.blit(colored_building, (screen_x, screen_y - TILE_HEIGHT))
+            screen.blit(images['town_center'], (screen_x - TILE_WIDTH, screen_y - TILE_HEIGHT * 2))
+            #print(f"[DEBUG] Town Center {building.owner} @ ({building.x}, {building.y}) -> screen ({screen_x}, {screen_y})")
         elif building.building_type == 'Farm':
-            colored_building = colorize_image(images['farm'], color)
-            screen.blit(colored_building, (screen_x, screen_y - TILE_HEIGHT))
-    # ==============================================================
+            screen.blit(images['farm'], (screen_x - TILE_WIDTH, screen_y - TILE_HEIGHT * 2))
+    # =====================================
 
-    # ========== MODIFIÉ : Render units avec couleurs ==========
+    # ========== Render units ==========
     for unit in units:
         screen_x = (unit.x - unit.y) * (TILE_WIDTH // 2) + (screen_width // 2) - TILE_WIDTH // 2 - (view_x - view_y) * (TILE_WIDTH // 2)
         screen_y = (unit.x + unit.y) * (TILE_HEIGHT // 2) - (view_x + view_y) * (TILE_HEIGHT // 2)
         
-        # Déterminer la couleur selon le propriétaire
-        if unit.owner == game_state.player_side:
-            color = game_state.get_player_color()
-        else:
-            color = game_state.get_enemy_color()
-        
         if unit.unit_type == 'Villager':
-            colored_villager = colorize_image(images['villager'], color)
-            screen.blit(colored_villager, (screen_x, screen_y - TILE_HEIGHT // 2))
-    # ==========================================================
+            screen.blit(images['villager'], (screen_x - TILE_WIDTH // 4, screen_y - TILE_HEIGHT))
+            #print(f"[DEBUG] Villager {unit.owner} @ ({unit.x}, {unit.y}) -> screen ({screen_x}, {screen_y})")
+    # ===================================
 
     # Afficher les ressources du joueur en haut de l'écran
     font = pygame.font.Font(None, 36)
