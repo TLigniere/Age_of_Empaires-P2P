@@ -67,6 +67,87 @@ class GameState:
             return (255, 0, 0)    # Rouge pour J2 (ennemi de J1)
         else:
             return (0, 100, 255)  # Bleu pour J1 (ennemi de J2)
+        
+def parse_kv(payload: str) -> dict:
+    if not payload:
+        return {}
+    out = {}
+    for part in payload.split(","):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            out[k.strip()] = v.strip()
+    return out
+
+def apply_network_message(msg_type, payload, units, buildings, game_map, ai):
+    data = parse_kv(payload)
+
+    # ---------------- PING ----------------
+    if msg_type == "PING":
+        return
+
+    # ---------------- UNIT_UPDATE ----------------
+    if msg_type == "UNIT_UPDATE":
+        uid = int(data["id"])
+        x   = int(data["x"])
+        y   = int(data["y"])
+
+        for u in units:
+            if u.network_id == uid:
+                u.x = x
+                u.y = y
+                return
+
+        # unité inconnue → création
+        new_unit = Unit(
+            unit_type=data.get("type", "Villager"),
+            x=x,
+            y=y,
+            ai=ai,
+            owner=data.get("owner"),
+            network_id=uid
+        )
+        units.append(new_unit)
+        return
+
+    # ---------------- BUILDING_STATE ----------------
+    if msg_type == "BUILDING_STATE":
+        b_type = data["type"]
+        x      = int(data["x"])
+        y      = int(data["y"])
+        owner  = data.get("owner")
+
+        for b in buildings:
+            if b.x == x and b.y == y and b.building_type == b_type:
+                return  # déjà présent
+
+        new_b = Building(b_type, x, y)
+        new_b.owner = owner
+        buildings.append(new_b)
+        game_map.place_building(new_b, x, y)
+        return
+
+    # ---------------- RESOURCES ----------------
+    if msg_type == "RESOURCES":
+        if not ai:
+            return
+        for k, v in data.items():
+            ai.resources[k.capitalize()] = int(v)
+        return
+
+    # ---------------- MAP_INIT ----------------
+    if msg_type == "MAP_INIT":
+        seed   = int(data["seed"])
+        width  = int(data["width"])
+        height = int(data["height"])
+
+        game_map.__init__(width, height, seed)
+        game_map.generate_forest_clusters(10, 40)
+        game_map.generate_gold_clusters(4)
+        return
+
+    # ---------------- UNKNOWN ----------------
+    Print_Display(f"[NET] Message inconnu: {msg_type} | {payload}")
+
 
 # Global Variables
 units, buildings, game_map, ai = None, None, None, None
@@ -514,10 +595,7 @@ def game_loop_curses(stdscr):
 
         messages = network.consume_messages()
         for msg_type, payload in messages:
-            if msg_type == "PING":
-                Print_Display("[PING] {payload}")
-            else:
-                Print_Display(f"[{msg_type}] {payload}")
+            apply_network_message(msg_type, payload, units, buildings, game_map, ai)
 
         current_time = time.time()
 
