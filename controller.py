@@ -732,13 +732,26 @@ def start_new_game_curses(stdscr):
     game_map    = Map(map_size, map_size)
     game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=gold_clusters)
-    town_center = Building('Town Center', 10, 10)
-    game_map.place_building(town_center, 10, 10)
+
+
+    match player_side_state.player_side:
+        case 'J1':
+            starting_x, starting_y = 10, 10
+            starting_x_V1, starting_y_V1 = 9, 9
+            starting_x_V2, starting_y_V2 = 12, 9
+            starting_x_V3, starting_y_V3 = 9, 12
+        case 'J2':
+            starting_x, starting_y = map_size - 10, map_size - 10
+            starting_x_V1, starting_y_V1 = map_size - 11, map_size - 11
+            starting_x_V2, starting_y_V2 = map_size - 8, map_size - 11
+            starting_x_V3, starting_y_V3 = map_size - 11, map_size - 8
+    town_center = Building('Town Center', starting_x, starting_y)
+    game_map.place_building(town_center, starting_x, starting_y)
     
     # Création des unités avant l'IA
-    villager1   = Unit('Villager', 9, 9, None)  # Créez l'unité sans AI pour l'instant
-    villager2   = Unit('Villager', 12, 9, None)
-    villager3   = Unit('Villager', 9, 12, None)
+    villager1   = Unit('Villager', starting_x_V1, starting_y_V1, None)  # Créez l'unité sans AI pour l'instant
+    villager2   = Unit('Villager', starting_x_V2, starting_y_V2, None)
+    villager3   = Unit('Villager', starting_x_V3, starting_y_V3, None)
     units       = [villager1, villager2, villager3]
     buildings   = [town_center]
 
@@ -896,12 +909,24 @@ def start_new_game_graphics(screen, font):
     game_map = Map(map_size, map_size, seed)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
-    town_center = Building('Town Center', 10, 10)
-    game_map.place_building(town_center, 10, 10)
+    match player_side_state.player_side:
+        case 'J1':
+            starting_x, starting_y = 10, 10
+            starting_x_V1, starting_y_V1 = 9, 9
+            starting_x_V2, starting_y_V2 = 12, 9
+            starting_x_V3, starting_y_V3 = 9, 12
+        case 'J2':
+            starting_x, starting_y = map_size - 10, map_size - 10
+            starting_x_V1, starting_y_V1 = map_size - 11, map_size - 11
+            starting_x_V2, starting_y_V2 = map_size - 8, map_size - 11
+            starting_x_V3, starting_y_V3 = map_size - 11, map_size - 8
+
+    town_center = Building('Town Center', starting_x, starting_y)
+    game_map.place_building(town_center, starting_x, starting_y)
     ai = AI(buildings, units)  # Initialisation de l'objet AI
-    villager = Unit('Villager', 9, 9, ai)
-    villager2 = Unit('Villager', 12, 9, ai)
-    villager3 = Unit('Villager', 9, 12, ai)
+    villager = Unit('Villager', starting_x_V1, starting_y_V1, ai)
+    villager2 = Unit('Villager', starting_x_V2, starting_y_V2, ai)
+    villager3 = Unit('Villager', starting_x_V3, starting_y_V3, ai)
     units = [villager, villager2, villager3]
     buildings = [town_center]
     ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
