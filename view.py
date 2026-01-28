@@ -106,6 +106,7 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     end_view_y = view_y + max_row
     end_view_x = view_x + int(max_clm / 2)
 
+    Print_Display(f"Affichage de la carte de ({view_x}, {view_y}) à ({end_view_x}, {end_view_y})")
     for y in range(view_y , end_view_y):
         for x in range(view_x , end_view_x ):
             try:
@@ -120,7 +121,10 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
             Y = ( y - view_y + 1)
             X = ( x - view_x + 1)*2
             
-            mapDisplay.addstr(Y , X, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
+            try :
+                mapDisplay.addstr(Y , X, Case, curses.color_pair(color_pair))  # Affiche l'unité ou la tuile
+            except curses.error:
+                pass
     mapDisplay.refresh()
 
     Info_Display([ai],game_state)
@@ -199,11 +203,14 @@ def handle_input(stdscr, view_x, view_y, max_height, max_width, game_map):
     match key:
         case SpecialCode.UP | curses.KEY_UP:
             view_y = max(0, view_y - 1)
+
         case SpecialCode.DOWN | curses.KEY_DOWN:
             view_y = min(game_map.height - max_height, view_y + 1)
+
         case SpecialCode.LEFT | curses.KEY_LEFT:
             view_x = max(0, view_x - 1)
+
         case SpecialCode.RIGHT | curses.KEY_RIGHT:
-            view_x = min(game_map.width - max_width, view_x + 1)
+            view_x = min(game_map.width, view_x + 1)
 
     return view_x, view_y
