@@ -738,15 +738,15 @@ def start_new_game_curses(stdscr):
         
         case 'J1':
             starting_x, starting_y = 10, 10
-            starting_x_V1, starting_y_V1 = 9, 9
-            starting_x_V2, starting_y_V2 = 12, 9
-            starting_x_V3, starting_y_V3 = 9, 12
+            starting_x_V1, starting_y_V1 = starting_x + 1, starting_y + 1
+            starting_x_V2, starting_y_V2 = starting_x - 2, starting_y + 1
+            starting_x_V3, starting_y_V3 = starting_x + 1, starting_y - 2
 
         case 'J2':
             starting_x, starting_y = map_size - 10, map_size - 10
-            starting_x_V1, starting_y_V1 = map_size - 11, map_size - 11
-            starting_x_V2, starting_y_V2 = map_size - 8, map_size - 11
-            starting_x_V3, starting_y_V3 = map_size - 11, map_size - 8
+            starting_x_V1, starting_y_V1 = starting_x - 1, starting_y - 1
+            starting_x_V2, starting_y_V2 = starting_x + 2, starting_y - 1
+            starting_x_V3, starting_y_V3 = starting_x - 1, starting_y + 2
 
     town_center = Building('Town Center', starting_x, starting_y)
     game_map.place_building(town_center, starting_x, starting_y)
@@ -913,16 +913,18 @@ def start_new_game_graphics(screen, font):
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
     match player_side_state.player_side:
+        
         case 'J1':
             starting_x, starting_y = 10, 10
-            starting_x_V1, starting_y_V1 = 9, 9
-            starting_x_V2, starting_y_V2 = 12, 9
-            starting_x_V3, starting_y_V3 = 9, 12
+            starting_x_V1, starting_y_V1 = starting_x + 1, starting_y + 1
+            starting_x_V2, starting_y_V2 = starting_x - 2, starting_y + 1
+            starting_x_V3, starting_y_V3 = starting_x + 1, starting_y - 2
+
         case 'J2':
             starting_x, starting_y = map_size - 10, map_size - 10
-            starting_x_V1, starting_y_V1 = map_size - 11, map_size - 11
-            starting_x_V2, starting_y_V2 = map_size - 8, map_size - 11
-            starting_x_V3, starting_y_V3 = map_size - 11, map_size - 8
+            starting_x_V1, starting_y_V1 = starting_x - 1, starting_y - 1
+            starting_x_V2, starting_y_V2 = starting_x + 2, starting_y - 1
+            starting_x_V3, starting_y_V3 = starting_x - 1, starting_y + 2
 
     town_center = Building('Town Center', starting_x, starting_y)
     game_map.place_building(town_center, starting_x, starting_y)
