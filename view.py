@@ -1,5 +1,11 @@
 import curses
-#from controller import mapDisplay, printDisplay, connexionDisplay, infoDisplay
+
+class SpecialCode:
+    ENTER   = ord('\n')
+    UP      = ord('z')
+    DOWN    = ord('s')
+    LEFT    = ord('q')
+    RIGHT   = ord('d')
 
 def init_colors():
     """Initialise les couleurs pour l'affichage."""
@@ -87,7 +93,7 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     unit_positions = {}
     for unit in units:
         # Détermine la couleur selon le propriétaire
-        if unit.owner == game_state.player_side:
+        if unit.owner == "J1":
             color_pair = 10  # Bleu pour J1
         else:
             color_pair = 11  # Rouge pour J2
@@ -147,9 +153,11 @@ def Print_Display(Text,Color=3):
 
         for i in range(0, Display_Height -2):
             Text_to_display = Queue[i][0] if len(Queue) > i else ""
-            Color = Queue[i][1] if len(Queue) > i else False
-
-            printDisplay.addstr(i+1, 1, Text_to_display,curses.color_pair(Color)) 
+            Color           = Queue[i][1] if len(Queue) > i else False
+            try :
+                printDisplay.addstr(i+1, 1, Text_to_display,curses.color_pair(Color)) 
+            except curses.error:
+                pass
 
         printDisplay.refresh()
         
@@ -204,13 +212,14 @@ def handle_input(stdscr, view_x, view_y, max_height, max_width, game_map):
     """Gère les touches pour le scrolling ZQSD et les touches fléchées."""
     key = stdscr.getch()
 
-    if key == ord('z') or key == curses.KEY_UP:  # Touche Z ou flèche haut pour monter
-        view_y = max(0, view_y - 1)  # Limite supérieure
-    elif key == ord('s') or key == curses.KEY_DOWN:  # Touche S ou flèche bas pour descendre
-        view_y = min(game_map.height - max_height, view_y + 1)  # Limite inférieure
-    elif key == ord('q') or key == curses.KEY_LEFT:  # Touche Q ou flèche gauche pour aller à gauche
-        view_x = max(0, view_x - 1)  # Limite gauche
-    elif key == ord('d') or key == curses.KEY_RIGHT:  # Touche D ou flèche droite pour aller à droite
-        view_x = min(game_map.width - max_width, view_x + 1)  # Limite droite
+    match key:
+        case SpecialCode.UP | curses.KEY_UP:
+            view_y = max(0, view_y - 1)
+        case SpecialCode.DOWN | curses.KEY_DOWN:
+            view_y = min(game_map.height - max_height, view_y + 1)
+        case SpecialCode.LEFT | curses.KEY_LEFT:
+            view_x = max(0, view_x - 1)
+        case SpecialCode.RIGHT | curses.KEY_RIGHT:
+            view_x = min(game_map.width - max_width, view_x + 1)
 
     return view_x, view_y

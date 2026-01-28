@@ -34,6 +34,11 @@ DEFAULT_SAVE = os.path.join(SAVE_DIR, "default_game.pkl")
 GAME_PLAYING = "PLAYING"
 GAME_PAUSED = "PAUSED"
 
+
+# ADD CURSE INPUT
+class SpecialCode:
+    ENTER = ord('\n')
+
 # ========== NETWORK CONFIGURATION ==========
 # Set to True when you have the C process running
 # Set to False for local testing without C process
@@ -61,10 +66,10 @@ NETWORK_DEST_PORT = 6000
 
 class GameElement:
     def __init__(self, id, owner=None):
-        self.id = id
-        self.owner = owner        # Joueur qui possède cet élément (propriété métier)
-        self.network_owner = owner  # Joueur qui contrôle cet élément pour le réseau
-        self.state = {}           # État de l’élément (ex: mur endommagé, ressources)
+        self.id             = id
+        self.owner          = owner        # Joueur qui possède cet élément (propriété métier)
+        self.network_owner  = owner  # Joueur qui contrôle cet élément pour le réseau
+        self.state          = {}           # État de l’élément (ex: mur endommagé, ressources)
 
     def can_modify(self, player):
         return self.network_owner == player
@@ -110,16 +115,19 @@ def load_existing_game_curses(stdscr):
         stdscr.refresh()
 
         key = stdscr.getch()
-        if key == curses.KEY_DOWN:
-            selected_option = (selected_option + 1) % len(saves)
-        elif key == curses.KEY_UP:
-            selected_option = (selected_option - 1) % len(saves)
-        elif key == ord('\n'):  # Touche entrée
-            # Charger la partie sélectionnée
-            load_existing_game(os.path.join(SAVE_DIR, saves[selected_option]))
-            # Après chargement, lancez directement la partie avec curses
-            game_loop_curses(stdscr)
-            return  # Quitte la fonction après avoir lancé la boucle de jeu
+
+        match key:
+            case curses.KEY_DOWN:
+                selected_option = (selected_option + 1) % len(saves)
+            case curses.KEY_UP:
+                selected_option = (selected_option - 1) % len(saves)
+            case SpecialCode.ENTER:  # Touche entrée
+                # Charger la partie sélectionnée
+                load_existing_game(os.path.join(SAVE_DIR, saves[selected_option]))
+                # Après chargement, lancez directement la partie avec curses
+                game_loop_curses(stdscr)
+                return  # Quitte la fonction après avoir lancé la boucle de jeu
+            
 
 def load_existing_game_graphics(screen, font):
     saves = list_saves()
@@ -180,19 +188,19 @@ def choose_player_side_curses(stdscr):
         stdscr.refresh()
         
         key = stdscr.getch()
-        if key == curses.KEY_DOWN:
-            selected = (selected + 1) % 2
-        elif key == curses.KEY_UP:
-            selected = (selected - 1) % 2
-        elif key == ord('\n'):
-            return 'J1' if selected == 0 else 'J2'
-
+        match key:
+            case curses.KEY_DOWN:
+                selected = (selected + 1) % 2
+            case curses.KEY_UP:
+                selected = (selected - 1) % 2
+            case SpecialCode.ENTER:
+                return 'J1' if selected == 0 else 'J2'  
 
 def choose_player_side_graphics(screen, font):
     """Menu de sélection du camp (J1 ou J2) en mode graphique"""
-    options = ["Jouer en tant que Joueur 1 (Bleu)", "Jouer en tant que Joueur 2 (Rouge)"]
-    selected = 0
-    running = True
+    options     = ["Jouer en tant que Joueur 1 (Bleu)", "Jouer en tant que Joueur 2 (Rouge)"]
+    selected    = 0
+    running     = True
     
     while running:
         screen.fill((0, 0, 0))
@@ -200,8 +208,8 @@ def choose_player_side_graphics(screen, font):
         screen.blit(title, (20, 50))
         
         for i, option in enumerate(options):
-            color = (255, 255, 255) if i == selected else (100, 100, 100)
-            text = font.render(option, True, color)
+            color   = (255, 255, 255) if i == selected else (100, 100, 100)
+            text    = font.render(option, True, color)
             screen.blit(text, (20, 120 + i * 50))
         pygame.display.flip()
         
@@ -325,59 +333,67 @@ def escape_menu_curses(stdscr):
         stdscr.refresh()
 
         key = stdscr.getch()
-        if key == curses.KEY_DOWN:
-            selected_option = (selected_option + 1) % len(options)
-        elif key == curses.KEY_UP:
-            selected_option = (selected_option - 1) % len(options)
-        elif key == ord('\n'):  # Touche entrée
-            if selected_option == 0:  # Sauvegarder
-                clear_input_buffer(stdscr)
-                stdscr.addstr(5, 0, "Nom de la sauvegarde :")
-                stdscr.refresh()
+        match key:
 
-                save_name = ""
-                while True:
-                    key = stdscr.getch()
-                    if key == ord('\n'):
-                        if save_name.strip() == "":
-                            stdscr.addstr(6, 0, "Erreur : le nom ne peut pas être vide.")
-                            stdscr.refresh()
-                            time.sleep(2)
-                        else:
-                            break
-                    elif key in [curses.KEY_BACKSPACE, 127]:
-                        save_name = save_name[:-1]
-                        stdscr.addstr(6, 0, " " * 20)  # Efface la ligne précédente
-                        stdscr.addstr(6, 0, save_name)
-                        stdscr.refresh()
-                    elif 32 <= key <= 126:  # Caractères imprimables uniquement
-                        save_name += chr(key)
-                        stdscr.addstr(6, 0, save_name)
-                        stdscr.refresh()
+            case curses.KEY_DOWN:
+                selected_option = (selected_option + 1) % len(options)
 
-                try:
-                    save_game_state(units, buildings, game_map, ai, os.path.join(SAVE_DIR, f"{save_name}.pkl"))
-                except Exception as e:
-                    stdscr.addstr(7, 0, f"Erreur : {str(e)}")
+            case curses.KEY_UP:
+                selected_option = (selected_option - 1) % len(options)
+
+            case 27:  # Touche Échap pour quitter le menu
+                return  # Quitte le menu pour reprendre la partie
+
+            case SpecialCode.ENTER:  # Touche entrée
+
+                if selected_option == 0:  # Sauvegarder
+                    clear_input_buffer(stdscr)
+                    stdscr.addstr(5, 0, "Nom de la sauvegarde :")
                     stdscr.refresh()
-                    time.sleep(2)
 
-            elif selected_option == 1:  # Charger
-                load_existing_game_curses(stdscr)
-                return  # Après chargement, lancez la boucle de jeu
+                    save_name = ""
+                    while True:
+                        key = stdscr.getch()
+                        if key == ord('\n'):
+                            if save_name.strip() == "":
+                                stdscr.addstr(6, 0, "Erreur : le nom ne peut pas être vide.")
+                                stdscr.refresh()
+                                time.sleep(2)
+                            else:
+                                break
+                        elif key in [curses.KEY_BACKSPACE, 127]:
+                            save_name = save_name[:-1]
+                            stdscr.addstr(6, 0, " " * 20)  # Efface la ligne précédente
+                            stdscr.addstr(6, 0, save_name)
+                            stdscr.refresh()
+                            
+                        elif 32 <= key <= 126:  # Caractères imprimables uniquement
+                            save_name += chr(key)
+                            stdscr.addstr(6, 0, save_name)
+                            stdscr.refresh()
 
-            elif selected_option == 2:  # Reprendre
-                return  # Quitte le menu et reprend la partie
+                    try:
+                        save_game_state(units, buildings, game_map, ai, os.path.join(SAVE_DIR, f"{save_name}.pkl"))
+                    except Exception as e:
+                        stdscr.addstr(7, 0, f"Erreur : {str(e)}")
+                        stdscr.refresh()
+                        time.sleep(2)
 
-            elif selected_option == 3:  # Retour au Menu Principal
-                curses.wrapper(main_menu_curses_internal)
-                return
+                elif selected_option == 1:  # Charger
+                    load_existing_game_curses(stdscr)
+                    return  # Après chargement, lancez la boucle de jeu
 
-            elif selected_option == 4:  # Quitter
-                sys.exit(0)
+                elif selected_option == 2:  # Reprendre
+                    return  # Quitte le menu et reprend la partie
 
-        elif key == 27:  # Touche Échap pour quitter le menu
-            return  # Quitte le menu pour reprendre la partie
+                elif selected_option == 3:  # Retour au Menu Principal
+                    curses.wrapper(main_menu_curses_internal)
+                    return
+
+                elif selected_option == 4:  # Quitter
+                    sys.exit(0)
+
+
 
 
 
@@ -463,17 +479,17 @@ def game_loop_curses(stdscr):
             Print_Display(f"[ERROR] Échec de la connexion au processus C : {e}")
             return
 
-    max_height, max_width = stdscr.getmaxyx()
-    max_height = max_height - 10
-    max_width = int(max_width/2-20)
-    view_x, view_y = 0, 0
+    max_height, max_width   = stdscr.getmaxyx()
+    max_height              = max_height - 10
+    max_width               = int(max_width/2-20)
+    view_x, view_y          = 0, 0
 
     stdscr.nodelay(True)
     stdscr.timeout(100)
 
-    last_update_time = time.time()
-    last_save_time = time.time()
-    last_network_send_time = time.time()
+    last_update_time        = time.time()
+    last_save_time          = time.time()
+    last_network_send_time  = time.time()
 
     init_colors()
 
@@ -600,23 +616,33 @@ def main_menu_curses_internal(stdscr):
         stdscr.refresh()
 
         key = stdscr.getch()
-        if key == curses.KEY_DOWN:
-            selected_option = (selected_option + 1) % len(options)
-        elif key == curses.KEY_UP:
-            selected_option = (selected_option - 1) % len(options)
-        elif key == ord('\n'):  # Touche entrée
-            if selected_option == 0:  # Charger une partie
-                load_existing_game_curses(stdscr)
-            elif selected_option == 1:  # Continuer la dernière partie
-                loaded_units, loaded_buildings, loaded_map, loaded_ai = load_game_state(DEFAULT_SAVE)
-                if loaded_units and loaded_buildings and loaded_map and loaded_ai:
-                    global units, buildings, game_map, ai
-                    units, buildings, game_map, loaded_ai
-                    curses.wrapper(game_loop_curses)
-            elif selected_option == 2:  # Nouvelle partie
-                start_new_game_curses(stdscr)
-            elif selected_option == 3:  # Quitter
-                sys.exit(0)
+
+        match key:
+
+            case curses.KEY_DOWN:
+                selected_option = (selected_option + 1) % len(options)
+
+            case curses.KEY_UP:
+                selected_option = (selected_option - 1) % len(options)
+
+            case SpecialCode.ENTER:  # Touche entrée
+
+                match selected_option:
+                    case 0:  # Charger une partie
+                        load_existing_game_curses(stdscr)
+
+                    case 1:  # Continuer la dernière partie
+                        loaded_units, loaded_buildings, loaded_map, loaded_ai = load_game_state(DEFAULT_SAVE)
+                        if loaded_units and loaded_buildings and loaded_map and loaded_ai:
+                            global units, buildings, game_map, ai
+                            units, buildings, game_map, loaded_ai
+                            curses.wrapper(game_loop_curses)
+
+                    case 2:  # Nouvelle partie
+                        start_new_game_curses(stdscr)
+
+                    case 3:  # Quitter
+                        sys.exit(0)
 
 def start_new_game_curses(stdscr):
     stdscr.clear()
@@ -644,69 +670,76 @@ def start_new_game_curses(stdscr):
         while True:
             key = stdscr.getch()
 
-            if key == ord('\n'):  # Touche Entrée
-                if value.strip() == "":
-                    value = default  # Si aucune entrée, utilise la valeur par défaut
-                break
-            elif key in [curses.KEY_BACKSPACE, 127]:  # Touche Backspace
-                value = value[:-1]
-                stdscr.addstr(idx + 1, len(prompt), " " * (len(value) + 10))  # Efface la ligne précédente
-                stdscr.addstr(idx + 1, len(prompt), value)
-                stdscr.move(idx + 1, len(prompt) + len(value))
-            elif 32 <= key <= 126:  # Caractères imprimables uniquement
-                value += chr(key)
-                stdscr.addstr(idx + 1, len(prompt), value)
-                stdscr.move(idx + 1, len(prompt) + len(value))
+            match key: 
+
+                case SpecialCode.ENTER | ord('\n') :  # Touche Entrée
+                    if value.strip() == "":
+                        value = default  # Si aucune entrée, utilise la valeur par défaut
+                    break
+
+                case curses.KEY_BACKSPACE | 127:  # Touche Backspace
+                    value = value[:-1]
+                    stdscr.addstr(idx + 1, len(prompt), " " * (len(value) + 10))  # Efface la ligne précédente
+                    stdscr.addstr(idx + 1, len(prompt), value)
+                    stdscr.move(idx + 1, len(prompt) + len(value))
+
+                case _ if 32 <= key <= 126:  # Caractères imprimables uniquement
+                    value += chr(key)
+                    stdscr.addstr(idx + 1, len(prompt), value)
+                    stdscr.move(idx + 1, len(prompt) + len(value))
 
         input_values.append(value)
 
     # Récupération des valeurs
     try:
-        map_size = int(input_values[0])
-        wood_clusters = int(input_values[1])
-        gold_clusters = int(input_values[2])
-        speed = float(input_values[3])
-        my_port = int(input_values[4])
-        python_port = int(input_values[5])
-        dest_port = int(input_values[6])
+        map_size        = int(input_values[0])
+        wood_clusters   = int(input_values[1])
+        gold_clusters   = int(input_values[2])
+        speed           = float(input_values[3])
+        my_port         = int(input_values[4])
+        python_port     = int(input_values[5])
+        dest_port       = int(input_values[6])
+
     except ValueError:
         stdscr.addstr(len(input_fields) + 2, 0, "Erreur : Entrée invalide, utilisation des valeurs par défaut.")
         stdscr.refresh()
         time.sleep(2)
-        map_size = 120
-        wood_clusters = 10
-        gold_clusters = 4
-        speed = 1.0
-        my_port = 5000
-        python_port = 5001
-        dest_port = 6000
+        map_size        = 120
+        wood_clusters   = 10
+        gold_clusters   = 4
+        speed           = 1.0
+        my_port         = 5000
+        python_port     = 5001
+        dest_port       = 6000
 
     # Initialisation de la nouvelle partie
     global units, buildings, game_map, ai, player_side_state, NETWORK_MY_PORT, NETWORK_PYTHON_PORT, NETWORK_DEST_PORT
     
-    NETWORK_MY_PORT = my_port
-    NETWORK_DEST_PORT = dest_port
+    NETWORK_MY_PORT     = my_port
+    NETWORK_DEST_PORT   = dest_port
     NETWORK_PYTHON_PORT = python_port
 
     # Ask player to choose their side (J1 or J2)
     player_side_state.player_side = choose_player_side_curses(stdscr)
+
+    seed = int(time.time())
     
     # Synchroniser la variable globale Joueur
     import model as model_module
     model_module.Joueur = player_side_state.player_side
     
-    game_map = Map(map_size, map_size)
+    game_map    = Map(map_size, map_size)
     game_map.generate_forest_clusters(num_clusters=wood_clusters, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=gold_clusters)
     town_center = Building('Town Center', 10, 10)
     game_map.place_building(town_center, 10, 10)
     
     # Création des unités avant l'IA
-    villager1 = Unit('Villager', 9, 9, None)  # Créez l'unité sans AI pour l'instant
-    villager2 = Unit('Villager', 12, 9, None)
-    villager3 = Unit('Villager', 9, 12, None)
-    units = [villager1, villager2, villager3]
-    buildings = [town_center]
+    villager1   = Unit('Villager', 9, 9, None)  # Créez l'unité sans AI pour l'instant
+    villager2   = Unit('Villager', 12, 9, None)
+    villager3   = Unit('Villager', 9, 12, None)
+    units       = [villager1, villager2, villager3]
+    buildings   = [town_center]
 
     # Créez l'instance de l'AI après avoir créé les unités
     ai = AI(buildings, units)
@@ -719,9 +752,9 @@ def start_new_game_curses(stdscr):
     player_side_state.set_player_ai(ai)
 
     # Initialiser la communication réseau
-    NET_ME = str(my_port)
-    NET_DEST = str(dest_port)
-    PY_PORT = str(python_port)
+    NET_ME      = str(my_port)
+    NET_DEST    = str(dest_port)
+    PY_PORT     = str(python_port)
     GAMEP2P_EXE = "./network/GameP2P.exe"
     try:
         bridge_proc = subprocess.Popen([GAMEP2P_EXE, NET_ME, NET_DEST, PY_PORT])
@@ -736,11 +769,11 @@ def start_new_game_curses(stdscr):
 
 def main_menu_graphics():
     pygame.init()
-    screen = pygame.display.set_mode((screen_width, screen_height))
-    font = pygame.font.Font(None, 36)
-    options = ["1. Charger une partie", "2. Continuer la dernière partie", "3. Nouvelle partie", "4. Quitter"]
+    screen          = pygame.display.set_mode((screen_width, screen_height))
+    font            = pygame.font.Font(None, 36)
+    options         = ["1. Charger une partie", "2. Continuer la dernière partie", "3. Nouvelle partie", "4. Quitter"]
     selected_option = 0
-    running = True
+    running     = True
 
     while running:
         screen.fill((0, 0, 0))
@@ -784,11 +817,11 @@ def start_new_game_graphics(screen, font):
     # Pour chaque champ de saisie
     for idx, (prompt, default) in enumerate(input_fields):
         input_text = default
-        running = True
+        running    = True
         while running:
             screen.fill((0, 0, 0))
-            prompt_surface = font.render(prompt, True, (255, 255, 255))
-            input_surface = font.render(input_text, True, (255, 255, 255))
+            prompt_surface  = font.render(prompt, True, (255, 255, 255))
+            input_surface   = font.render(input_text, True, (255, 255, 255))
             screen.blit(prompt_surface, (20, 50 + idx * 60))
             screen.blit(input_surface, (20, 100 + idx * 60))
             pygame.display.flip()
@@ -858,7 +891,8 @@ def start_new_game_graphics(screen, font):
     import model as model_module
     model_module.Joueur = player_side_state.player_side
     
-    game_map = Map(120, 120)
+    seed = int(time.time())
+    game_map = Map(map_size, map_size, seed)
     game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
     game_map.generate_gold_clusters(num_clusters=4)
     town_center = Building('Town Center', 10, 10)
@@ -873,6 +907,13 @@ def start_new_game_graphics(screen, font):
     
     # Set the player AI in game state
     player_side_state.set_player_ai(ai)
+
+    # Envoi du seed et des infos map au réseau si nécessaire
+    try:
+        import network
+        network.send(game_map.to_network_message())
+    except Exception:
+        pass  # Le réseau peut ne pas être initialisé
 
     # Lancer la boucle de jeu graphique
     game_loop_graphics()
@@ -891,32 +932,50 @@ def init_game():
     if loaded_units and loaded_buildings and loaded_map and loaded_ai:
         units, buildings, game_map, ai = loaded_units, loaded_buildings, loaded_map, loaded_ai
     else:
-        game_map = Map(120, 120)
+        seed        = int(time.time())  # pour générer la même map des deux côtés
+        game_map    = Map(120, 120, seed)
         game_map.generate_forest_clusters(num_clusters=10, cluster_size=40)
         game_map.generate_gold_clusters(num_clusters=4)
-        town_center = Building('Town Center', 10, 10)
-        game_map.place_building(town_center, 10, 10)
-        ai = AI(buildings, units)  # Initialisation de l'objet AI
-        villager = Unit('Villager', 9, 9, ai)
-        villager2 = Unit('Villager', 12, 9, ai)
-        villager3 = Unit('Villager', 9, 12, ai)
-        units = [villager, villager2, villager3]
-        buildings = [town_center]
-        ai = AI(ai, buildings, units)  # Passage de l'objet ai à l'IA
+        
+        match player_side_state.player_side:
+
+            case 'J1':
+                town_center = Building('Town Center', 10, 10)
+                game_map.place_building(town_center, 10, 10)
+                aiJ1        = AI(buildings, units)  # Initialisation de l'objet AI
+                villager    = Unit('Villager', 9, 9, aiJ1)
+                villager2   = Unit('Villager', 12, 9, aiJ1)
+                villager3   = Unit('Villager', 9, 12, aiJ1)
+                units       = [villager, villager2, villager3]
+                buildings   = [town_center]
+                aiJ1        = AI(aiJ1, buildings, units)  # Passage de l'objet ai à l'IA
+
+            case 'J2':
+                town_center = Building('Town Center', 110, 110)
+                game_map.place_building(town_center, 110, 110)
+                aiJ2        = AI(buildings, units)  # Initialisation de l'objet AI
+                villager    = Unit('Villager', 109, 109, aiJ2)
+                villager2   = Unit('Villager', 112, 109, aiJ2)
+                villager3   = Unit('Villager', 109, 112, aiJ2)
+                units       = [villager, villager2, villager3]
+                buildings   = [town_center]
+                aiJ2        = AI(aiJ2, buildings, units)  # Passage de l'objet ai à l'IA
+
+        network.send(game_map.to_network_message())
         
         # Set the player AI in game state
-        player_side_state.set_player_ai(ai)
+        #player_side_state.set_player_ai(ai)
 
 
 
 class NetworkClient:
     def __init__(self, python_port, my_port):
-        self.python_port = python_port
-        self.bridge_port = my_port
+        self.python_port    = python_port
+        self.bridge_port    = my_port
         
-        self.connected = False
-        self.inbox = []
-        self.last_msg_time = time.time()
+        self.connected      = False
+        self.inbox          = []
+        self.last_msg_time  = time.time()
         
         # Socket UDP Non-Bloquant
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -930,7 +989,7 @@ class NetworkClient:
         try:
             while True: # On vide tout le buffer d'un coup
                 data, _ = self.sock.recvfrom(4096)
-                msg = data.decode().strip()
+                msg     = data.decode().strip()
                 
                 # Parsing simple
                 if "|" in msg:
@@ -943,7 +1002,7 @@ class NetworkClient:
                 self.last_msg_time = time.time()
                 if not self.connected:
                     self.connected = True
-                    print("[NET] Connexion détectée !")
+                    Print_Display("[NET] Connexion détectée !")
                     
         except BlockingIOError:
             pass # Rien à lire
@@ -952,7 +1011,7 @@ class NetworkClient:
 
         # Timeout : Si le "spam" s'arrête pendant 2s, c'est mort
         if self.connected and (time.time() - self.last_msg_time > 2.0):
-            print("[NET] ⚠️  Connexion perdue (Plus de données)")
+            Print_Display("[NET] ⚠️  Connexion perdue (Plus de données)")
             self.connected = False
 
     def send(self, msg_type, payload=""):
