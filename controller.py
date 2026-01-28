@@ -385,7 +385,7 @@ def send_game_state_to_c(network, units, buildings, ai, player_side):
     try:
         # Send unit positions
         for unit in units:
-            msg = f"UNIT_UPDATE|id:{id(unit)},type:{unit.unit_type},x:{unit.x},y:{unit.y},owner:{unit.owner}"
+            msg = f"UNIT_UPDATE|id:{unit.network_id},type:{unit.unit_type},x:{unit.x},y:{unit.y},owner:{unit.owner}"
             network.send("UNIT_UPDATE", msg)
             #Print_Display(f"[DEBUG] Sent to C: {msg}")
         
