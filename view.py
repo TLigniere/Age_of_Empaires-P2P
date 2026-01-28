@@ -91,6 +91,7 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     #unit_positions = {(unit.x, unit.y): unit.unit_type[0] for unit in units}  # 'V' pour villageois
 
     unit_positions = {}
+    Print_Display(f"[DEBUG] Nombre d'unités à afficher : {len(units)}")
     for unit in units:
         # Détermine la couleur selon le propriétaire
         if unit.owner == "J1":
@@ -187,24 +188,6 @@ def Info_Display(players, game_state):
         infoDisplay.addstr(2 * joueur_x,1,resources_info)
 
     infoDisplay.refresh()
-    """
-    infoDisplay.erase()
-    x=1
-    for faction in Factions:
-        for ressources in faction.inventory:
-            variable = faction.inventory[ressources]
-            infoDisplay.addstr(x,1,f"{faction.name} {ressources}:{variable}") 
-            x=x+1
-
-    key = f"{p_position[0]},{p_position[1]}"
-    infoCase = M[p_position[1]-1][p_position[0]-1] if units_in_cage.get(key) == None else units_in_cage.get(key)
-    j=x+1
-    for i in vars(infoCase) :
-        variable = vars(infoCase)[i] if i!="path" else None
-        infoDisplay.addstr(j,1,f"{i}:{variable}")
-        j=j+1
-    infoDisplay.refresh()
-    """
 
 
 

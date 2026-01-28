@@ -735,16 +735,19 @@ def start_new_game_curses(stdscr):
 
 
     match player_side_state.player_side:
+        
         case 'J1':
             starting_x, starting_y = 10, 10
             starting_x_V1, starting_y_V1 = 9, 9
             starting_x_V2, starting_y_V2 = 12, 9
             starting_x_V3, starting_y_V3 = 9, 12
+
         case 'J2':
             starting_x, starting_y = map_size - 10, map_size - 10
             starting_x_V1, starting_y_V1 = map_size - 11, map_size - 11
             starting_x_V2, starting_y_V2 = map_size - 8, map_size - 11
             starting_x_V3, starting_y_V3 = map_size - 11, map_size - 8
+
     town_center = Building('Town Center', starting_x, starting_y)
     game_map.place_building(town_center, starting_x, starting_y)
     
@@ -773,7 +776,7 @@ def start_new_game_curses(stdscr):
     try:
         bridge_proc = subprocess.Popen([GAMEP2P_EXE, NET_ME, NET_DEST, PY_PORT])
         time.sleep(0.5)
-        print(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {NET_ME} {NET_DEST} {PY_PORT}")
+        Print_Display(f"[INFO] Lancement du processus réseau C : {GAMEP2P_EXE} {NET_ME} {NET_DEST} {PY_PORT}")
     except Exception as e:
         Print_Display(f"[ERROR] Échec du lancement du processus réseau C : {e}")
 
