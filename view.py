@@ -106,7 +106,7 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     end_view_y = view_y + max_row
     end_view_x = view_x + int(max_clm / 2)
 
-    Print_Display(f"Affichage de la carte de ({view_x}, {view_y}) à ({end_view_x}, {end_view_y})")
+   # Print_Display(f"Affichage de la carte de ({view_x}, {view_y}) à ({end_view_x}, {end_view_y})")
     for y in range(view_y , end_view_y):
         for x in range(view_x , end_view_x ):
             try:
