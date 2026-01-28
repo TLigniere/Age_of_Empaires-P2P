@@ -4,7 +4,21 @@ from view import Print_Display
 
 class StrategieNo1(AIStrategy):
     def execute(self, units, buildings, game_map, ai):
+        # Déterminer le propriétaire local (on suppose que ai appartient au joueur local)
+        # Les unités sans owner explicite utilisent Joueur de model
+        from model import Joueur
+        local_owner = Joueur
+        
         for unit in units:
+            # Ignorer les unités distantes (du joueur adverse synchronisées via le réseau)
+            is_remote = getattr(unit, 'is_remote', False)
+            if is_remote:
+                continue
+            
+            # Ignorer aussi les unités qui n'appartiennent pas à ce joueur
+            if unit.owner != local_owner:
+                continue
+            
             # Gestion du dépôt des ressources
             if unit.returning_to_town_center:
                 path = unit.find_nearest_town_center(game_map, buildings)

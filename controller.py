@@ -79,7 +79,15 @@ def parse_kv(payload: str) -> dict:
     return out
 
 def apply_network_message(msg_type, payload, units, buildings, game_map, ai):
-    data = parse_kv(payload)
+    # Nettoyer le payload s'il contient encore le msg_type au début
+    if "|" in payload and payload.startswith(f"{msg_type}|"):
+        payload = payload.split("|", 1)[1]
+    
+    try:
+        data = parse_kv(payload)
+    except Exception as e:
+        Print_Display(f"[ERROR] Erreur parsing payload: {str(e)}")
+        return
 
     # ---------------- PING ----------------
     if msg_type == "PING":
@@ -87,63 +95,96 @@ def apply_network_message(msg_type, payload, units, buildings, game_map, ai):
 
     # ---------------- UNIT_UPDATE ----------------
     if msg_type == "UNIT_UPDATE":
-        uid = int(data["id"])
-        x   = int(data["x"])
-        y   = int(data["y"])
-
-        for u in units:
-            if u.network_id == uid:
-                u.x = x
-                u.y = y
+        try:
+            if "id" not in data or "x" not in data or "y" not in data:
+                Print_Display(f"[WARNING] UNIT_UPDATE message incomplet. Clés reçues: {list(data.keys())} | Payload: {payload}")
                 return
+            
+            uid = int(data["id"])
+            x   = int(data["x"])
+            y   = int(data["y"])
 
-        # unité inconnue → création
-        new_unit = Unit(
-            unit_type=data.get("type", "Villager"),
-            x=x,
-            y=y,
-            ai=ai,
-            owner=data.get("owner"),
-            network_id=uid
-        )
-        units.append(new_unit)
-        return
+            for u in units:
+                if hasattr(u, 'network_id') and u.network_id == uid:
+                    u.x = x
+                    u.y = y
+                    return
+
+            # unité inconnue → création
+            new_unit = Unit(
+                unit_type=data.get("type", "Villager"),
+                x=x,
+                y=y,
+                ai=ai,
+                owner=data.get("owner"),
+                network_id=uid,
+                is_remote=True  # Marquer comme unité distante
+            )
+            units.append(new_unit)
+            return
+            
+        except (ValueError, KeyError) as e:
+            Print_Display(f"[ERROR] Erreur UNIT_UPDATE: {str(e)}")
+            return
 
     # ---------------- BUILDING_STATE ----------------
     if msg_type == "BUILDING_STATE":
-        b_type = data["type"]
-        x      = int(data["x"])
-        y      = int(data["y"])
-        owner  = data.get("owner")
+        try:
+            if "type" not in data or "x" not in data or "y" not in data:
+                Print_Display(f"[WARNING] BUILDING_STATE message incomplet: {payload}")
+                return
+            
+            b_type = data["type"]
+            x      = int(data["x"])
+            y      = int(data["y"])
+            owner  = data.get("owner")
 
-        for b in buildings:
-            if b.x == x and b.y == y and b.building_type == b_type:
-                return  # déjà présent
+            for b in buildings:
+                if b.x == x and b.y == y and b.building_type == b_type:
+                    return  # déjà présent
 
-        new_b = Building(b_type, x, y)
-        new_b.owner = owner
-        buildings.append(new_b)
-        game_map.place_building(new_b, x, y)
-        return
+            new_b = Building(b_type, x, y)
+            new_b.owner = owner
+            buildings.append(new_b)
+            game_map.place_building(new_b, x, y)
+            return
+        except (ValueError, KeyError) as e:
+            Print_Display(f"[ERROR] Erreur BUILDING_STATE: {str(e)}")
+            return
 
     # ---------------- RESOURCES ----------------
     if msg_type == "RESOURCES":
-        if not ai:
+        try:
+            if not ai:
+                return
+            for k, v in data.items():
+                try:
+                    ai.resources[k.capitalize()] = int(v)
+                except (ValueError, KeyError):
+                    pass  # Ignorer les clés invalides
             return
-        for k, v in data.items():
-            ai.resources[k.capitalize()] = int(v)
-        return
+        except Exception as e:
+            Print_Display(f"[ERROR] Erreur RESOURCES: {str(e)}")
+            return
 
     # ---------------- MAP_INIT ----------------
     if msg_type == "MAP_INIT":
-        seed   = int(data["seed"])
-        width  = int(data["width"])
-        height = int(data["height"])
+        try:
+            if "seed" not in data or "width" not in data or "height" not in data:
+                Print_Display(f"[WARNING] MAP_INIT message incomplet: {payload}")
+                return
+            
+            seed   = int(data["seed"])
+            width  = int(data["width"])
+            height = int(data["height"])
 
-        game_map.__init__(width, height, seed)
-        game_map.generate_forest_clusters(10, 40)
-        game_map.generate_gold_clusters(4)
-        return
+            game_map.__init__(width, height, seed)
+            game_map.generate_forest_clusters(10, 40)
+            game_map.generate_gold_clusters(4)
+            return
+        except (ValueError, KeyError) as e:
+            Print_Display(f"[ERROR] Erreur MAP_INIT: {str(e)}")
+            return
 
     # ---------------- UNKNOWN ----------------
     Print_Display(f"[NET] Message inconnu: {msg_type} | {payload}")
@@ -856,6 +897,7 @@ def start_new_game_curses(stdscr):
     # Mettre à jour les unités avec l'instance correcte de l'IA
     for unit in units:
         unit.ai = ai
+        Print_Display(f"[INIT] Unité locale créée: {unit.unit_type} (is_remote={getattr(unit, 'is_remote', False)})")
     
     # Set the player AI in game state
     player_side_state.set_player_ai(ai)
