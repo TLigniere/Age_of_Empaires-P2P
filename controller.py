@@ -672,7 +672,7 @@ def start_new_game_curses(stdscr):
 
             match key: 
 
-                case SpecialCode.ENTER | ord('\n') :  # Touche Entrée
+                case SpecialCode.ENTER :  # Touche Entrée
                     if value.strip() == "":
                         value = default  # Si aucune entrée, utilise la valeur par défaut
                     break
