@@ -99,6 +99,7 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
         else:
             color_pair = 11  # Rouge pour J2
         unit_positions[(unit.x, unit.y)] = (unit.unit_type[0], color_pair)
+        Print_Display(f"[DEBUG] Unité {unit.unit_type} à la position ({unit.x}, {unit.y}) avec couleur {color_pair}")
 
     mapDisplay.border( 0 )
 
