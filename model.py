@@ -33,7 +33,7 @@ class Tile:
         self.unit = None  # Référence à un objet Unit s'il y en a une
     
     def send_to_network(self, x, y):
-        return f"type:'UPDATE_MAP',action:'PLACE_TILE',x:{x},y:{y},resource:{self.resource},building:{self.building},unit:{self.unit}"
+        return f"type:'MAP_UPDATE',action:'PLACE_TILE',x:{x},y:{y},resource:{self.resource},building:{self.building},unit:{self.unit}"
     
     def delete_ressource_network(self, x, y):
         self.resource = None
