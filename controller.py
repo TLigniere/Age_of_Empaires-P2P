@@ -111,18 +111,18 @@ def apply_network_message(msg_type, payload, units, buildings, game_map, ai):
 
     # ---------------- MAP_UPDATE -----------------
     "action:'DELETE_RESOURCE',x:{x},y:{y}"
-    if msg_type == "MAP_UPDATE":
+    if msg_type == "UPDATE_MAP":
         try:
             if "x" not in data or "y" not in data or "action" not in data:
                 Print_Display(
-                    f"[WARNING] MAP_UPDATE message incomplet. Clés reçues: {list(data.keys())} | Payload: {payload}"
+                    f"[WARNING] UPDATE_MAP message incomplet. Clés reçues: {list(data.keys())} | Payload: {payload}"
                 )
                 return
 
 
             x = int(data["x"])
             y = int(data["y"])
-            
+
             if data["action"] == "DELETE_RESOURCE":
                 game_map.grid[y][x].resource = None
 
@@ -130,11 +130,11 @@ def apply_network_message(msg_type, payload, units, buildings, game_map, ai):
                 game_map.grid[y][x].resource = None
             else:
                 Print_Display(
-                    f"[WARNING] MAP_UPDATE position hors limites: ({x}, {y})"
+                    f"[WARNING] UPDATE_MAP position hors limites: ({x}, {y})"
                 )
             return
         except (ValueError, KeyError) as e:
-            Print_Display(f"[ERROR] Erreur MAP_UPDATE: {str(e)}")
+            Print_Display(f"[ERROR] Erreur UPDATE_MAP: {str(e)}")
             return
 
     # ---------------- UNIT_UPDATE ----------------
