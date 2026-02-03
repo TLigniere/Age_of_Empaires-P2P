@@ -61,15 +61,13 @@ def define_boxes(stdscr):
 
     sizeMap =           (int(max_height)                                    , int(max_width / 2))
     sizeInfo =          (int(max_height/4)                                  , int(max_width / 2))
-    sizeConnexion =     (int(max_height/8)                                  , int(max_width / 2))
-    sizePrint =         (int(max_height - sizeConnexion[0] - sizeInfo[0])   , int(max_width / 2))
+    sizePrint =         (int(max_height - sizeInfo[0])   , int(max_width / 2))
 
     # Xdisplay =        curses.newwin(height            , width             , position_y                        , position_x )
     
     mapDisplay =        curses.newwin(sizeMap[0]        , sizeMap[1]        , 0                                 , 0         )
-    infoDisplay =       curses.newwin(sizeInfo[0]       , sizeInfo[1]       , sizeConnexion[0]                  , sizeMap[1])
-    connexionDisplay =  curses.newwin(sizeConnexion[0]  , sizeConnexion[1]  , 0                                 , sizeMap[1])
-    printDisplay =      curses.newwin(sizePrint[0]      , sizePrint[1]      , sizeConnexion[0] + sizeInfo[0]    , sizeMap[1])
+    infoDisplay =       curses.newwin(sizeInfo[0]       , sizeInfo[1]       , 0                                 , sizeMap[1])
+    printDisplay =      curses.newwin(sizePrint[0]      , sizePrint[1]      , sizeInfo[0]                       , sizeMap[1])
 
     # Xdisplay = curses.newwin( height, width, position_y, position_x )
 
@@ -128,18 +126,8 @@ def display_with_curses(stdscr, game_map, units, game_state, ai, view_x, view_y)
     mapDisplay.refresh()
 
     Info_Display([ai],game_state)
-    Connexion_Display("")
 
 
-def Connexion_Display(Text):
-    connexionDisplay.erase()
-    connexionDisplay.border( 0 ) 
-    Text_to_display = Text if Text != "" else "Aucune connexion au pairs."
-
-    connexion_info = (f"Statut de la connexion: {Text_to_display}")   
-
-    connexionDisplay.addstr(1, 1, str(connexion_info))
-    connexionDisplay.refresh()
 
 Queue = [] 
 
